@@ -11,7 +11,7 @@ class ScimHomeController {
     static allowedMethods = [schemas: 'GET', serviceProvider: 'GET', resourceTypes: 'GET']
 
     def index() {
-        log.info('Index called')
+        log.warn('Reached to empty Index action of scim home')
         render([] as JSON)
     }
 
@@ -28,12 +28,12 @@ class ScimHomeController {
     }
 
     def serviceProviderConfig() {
-        log.info('ServiceProviderConfig called')
+        log.warn('ServiceProviderConfig needs to be implemented.') //TODO
         render([] as JSON)
     }
 
     def resourceTypes() {
-        log.info('ResourceTypes called')
+        log.warn('ResourceTypes needs to be implemented.') //TODO
         render([] as JSON)
     }
 }
