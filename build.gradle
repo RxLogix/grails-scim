@@ -1,4 +1,3 @@
-//import org.ajoberstar.grgit.Grgit
 buildscript {
     ext {
         grailsVersion = project.grailsVersion
@@ -10,27 +9,20 @@ buildscript {
     }
     dependencies {
         classpath "org.grails:grails-gradle-plugin:$grailsVersion"
-//        classpath "com.bertramlabs.plugins:asset-pipeline-gradle:2.14.2"
-//        classpath "org.ajoberstar:gradle-git:1.4.2"
+        classpath "com.gorylenko.gradle-git-properties:com.gorylenko.gradle-git-properties.gradle.plugin:1.5.2"
     }
 }
 
-version "0.1-M2"
+version "1.0-M1"
 
 group "org.grails.plugins"
 
-//apply plugin: 'maven-publish'
 apply plugin: 'eclipse'
 apply plugin: 'idea'
-//apply plugin: "spring-boot"
 apply plugin: "org.grails.grails-plugin"
 apply plugin: "org.grails.grails-plugin-publish"
 apply plugin: "org.grails.grails-gsp"
-//apply plugin: "org.ajoberstar.grgit"
-
-// Used for publishing to central repository, remove if not needed
-//apply from: 'https://raw.githubusercontent.com/grails/grails-profile-repository/master/profiles/plugin/templates/grailsCentralPublishing.gradle'
-//apply from: 'https://raw.githubusercontent.com/grails/grails-profile-repository/master/profiles/plugin/templates/bintrayPublishing.gradle'
+apply plugin: "com.gorylenko.gradle-git-properties"
 
 ext {
     grailsVersion = project.grailsVersion
@@ -38,8 +30,8 @@ ext {
 }
 
 
-sourceCompatibility = 1.7
-targetCompatibility = 1.7
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
 
 repositories {
     mavenLocal()
@@ -61,64 +53,39 @@ dependencies {
 
     console "org.grails:grails-console"
 
-    compile 'org.grails.plugins:spring-security-core:3.1.2'
-    compile 'org.grails.plugins:mail:2.0.1'
-    compile 'com.github.scribejava:scribejava-core:8.3.1'
-    compile 'com.github.scribejava:scribejava-apis:8.3.1'
-    compile group: 'joda-time', name: 'joda-time', version: '2.9.9'
 }
 
-//task wrapper(type: Wrapper) {
-//    gradleVersion = gradleWrapperVersion
-//}
-//
-//task sourceJar(type: Jar) {
-//    classifier = 'sources'
-//    from sourceSets.main.allSource
-//}
-
-bootRun {
-    jvmArgs('-Dspring.output.ansi.enabled=always')
-    addResources = true
-    String springProfilesActive = 'spring.profiles.active'
-    systemProperty springProfilesActive, System.getProperty(springProfilesActive)
+task wrapper(type: Wrapper) {
+    gradleVersion = gradleWrapperVersion
 }
-// enable if you wish to package this plugin as a standalone application
-bootRepackage.enabled = false
-grailsPublish {
-    // TODO: Provide values here
-    user = 'user'
-    key = 'key'
-    githubSlug = 'foo/bar'
-    license {
-        name = 'Apache-2.0'
+
+task sourceJar(type: Jar) {
+    classifier = 'sources'
+    from sourceSets.main.allSource
+}
+
+
+gitProperties {
+    keys = ['git.branch', 'git.commit.id', 'git.commit.time', 'git.commit.id.abbrev']
+    failOnNoGitDirectory = true
+    extProperty = 'gitProps' // git properties will be put in a map at project.ext.gitProps
+}
+
+generateGitProperties.outputs.upToDateWhen { false } // make sure the generateGitProperties task always executes (even when git.properties is not changed)
+
+jar {
+    dependsOn generateGitProperties
+    manifest {
+        attributes("Built-By": System.getProperty("user.name"))
+        attributes(["Plugin-Version"        : version,
+                    "Plugin-Title"          : project.name,
+                    "Plugin-Build-Timestamp": new Date().format("yyyy-MM-dd'T'HH:mm:ssZ"),
+                    "Git-Commit"            : "${-> project.ext.gitProps['git.commit.id.abbrev']}",
+                    "Git-Branch"            : "${-> project.ext.gitProps['git.branch']}"])
     }
-    title = "My Plugin"
-    desc = "Full plugin description"
-    developers = [johndoe:"John Doe"]
+    from sourceSets.main.output
+    exclude 'git.properties'
 }
-
-//task wrapper(type: Wrapper) {
-//    gradleVersion = gradleWrapperVersion
-//}
-//
-//task sourceJar(type: Jar) {
-//    classifier = 'sources'
-//    from sourceSets.main.allSource
-//}
-
-//def repo = Grgit.open('.')
-//jar {
-//    manifest {
-//        attributes("Built-By": System.getProperty("user.name"))
-//        attributes(["Plugin-Version"        : version,
-//                    "Plugin-Title"          : project.name,
-//                    "Plugin-Build-Timestamp": new Date().format("yyyy-MM-dd'T'HH:mm:ssZ"),
-//                    "Git-Commit"            : repo.head().getAbbreviatedId(8),
-//                    "Git-Branch"            : repo.branch.getCurrent().getName()])
-//    }
-//    from sourceSets.main.output
-//}
 
 publishing {
     publications {
@@ -136,21 +103,16 @@ publishing {
                     it.replaceNode {}
                 }
             }
-//            from components.java
-//            artifact sourceJar
+            from components.java
         }
     }
     repositories {
         maven {
             credentials {
-                username "farhanali"
-                password "farhan@12345"
+                username nexusUsername
+                password nexusPassword
             }
             url "http://10.100.3.6:8080/nexus/content/repositories/common-component-snapshots/"
         }
     }
 }
-
-//assets {
-//    packagePlugin = true
-//}

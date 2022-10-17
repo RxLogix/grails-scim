@@ -1,0 +1,240 @@
+{
+  "totalResults":2,
+  "startIndex":1,
+  "itemsPerPage":2,
+  "schemas":[
+    "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+  ],
+  "Resources":[
+    {
+      "id": "urn:ietf:params:scim:schemas:core:2.0:User",
+      "name": "User",
+      "description": "User Account",
+      "attributes": [
+        {
+          "name": "userName",
+          "type": "string",
+          "multiValued": false,
+          "description": "Unique identifier for the User, typically used by the user to directly authenticate to the service provider. Each User MUST include a non-empty userName value.  This identifier MUST be unique across the service provider's entire set of Users. REQUIRED.",
+          "required": true,
+          "caseExact": false,
+          "mutability": "readWrite",
+          "returned": "default",
+          "uniqueness": "server"
+        },
+        {
+          "name": "displayName",
+          "type": "string",
+          "multiValued": false,
+          "description": "The name of the User, suitable for display to end-users.  The name SHOULD be the full name of the User being described, if known.",
+          "required": false,
+          "caseExact": false,
+          "mutability": "readWrite",
+          "returned": "default",
+          "uniqueness": "none"
+        },
+        {
+          "name": "locale",
+          "type": "string",
+          "multiValued": false,
+          "description": "Used to indicate the User's default location for purposes of localizing items such as currency, date time format, or numerical representations.",
+          "required": false,
+          "caseExact": false,
+          "mutability": "readWrite",
+          "returned": "default",
+          "uniqueness": "none"
+        },
+        {
+          "name": "timezone",
+          "type": "string",
+          "multiValued": false,
+          "description": "The User's time zone in the 'Olson' time zone database format, e.g., 'America/Los_Angeles'.",
+          "required": false,
+          "caseExact": false,
+          "mutability": "readWrite",
+          "returned": "default",
+          "uniqueness": "none"
+        },
+        {
+          "name": "active",
+          "type": "boolean",
+          "multiValued": false,
+          "description": "A Boolean value indicating the User's administrative status.",
+          "required": true,
+          "mutability": "readWrite",
+          "returned": "default"
+        },
+        {
+          "name": "emails",
+          "type": "complex",
+          "multiValued": true,
+          "description": "Email addresses for the user.  The value SHOULD be canonicalized by the service provider, e.g., 'bjensen@example.com' instead of 'bjensen@EXAMPLE.COM'. Canonical type values of 'work'.",
+          "required": false,
+          "subAttributes": [
+            {
+              "name": "value",
+              "type": "string",
+              "multiValued": false,
+              "description": "Email addresses for the user.  The value SHOULD be canonicalized by the service provider, e.g., 'bjensen@example.com' instead of 'bjensen@EXAMPLE.COM'. Canonical type values of 'work'.",
+              "required": false,
+              "caseExact": false,
+              "mutability": "readWrite",
+              "returned": "default",
+              "uniqueness": "none"
+            },
+            {
+              "name": "display",
+              "type": "string",
+              "multiValued": false,
+              "description": "A human-readable name, primarily used for display purposes.  READ-ONLY.",
+              "required": false,
+              "caseExact": false,
+              "mutability": "readWrite",
+              "returned": "default",
+              "uniqueness": "none"
+            },
+            {
+              "name": "type",
+              "type": "string",
+              "multiValued": false,
+              "description": "A label indicating the attribute's function, e.g., 'work'.",
+              "required": false,
+              "caseExact": false,
+              "canonicalValues": [
+                "work"
+              ],
+              "mutability": "readWrite",
+              "returned": "default",
+              "uniqueness": "none"
+            },
+            {
+              "name": "primary",
+              "type": "boolean",
+              "multiValued": false,
+              "description": "A Boolean value indicating the 'primary' or preferred attribute value for this attribute, e.g., the preferred mailing address or primary email address.  The primary attribute value 'true' MUST appear no more than once.",
+              "required": false,
+              "mutability": "readWrite",
+              "returned": "default"
+            }
+          ],
+          "mutability": "readWrite",
+          "returned": "default",
+          "uniqueness": "none"
+        },
+        {
+          "name": "groups",
+          "type": "complex",
+          "multiValued": true,
+          "description": "A list of groups to which the user belongs, either through direct membership, through nested groups, or dynamically calculated.",
+          "required": false,
+          "subAttributes": [
+            {
+              "name": "id",
+              "type": "string",
+              "multiValued": false,
+              "description": "The identifier of the User's group.",
+              "required": false,
+              "caseExact": false,
+              "mutability": "readOnly",
+              "returned": "default",
+              "uniqueness": "none"
+            },
+            {
+              "name": "display",
+              "type": "string",
+              "multiValued": false,
+              "description": "A human-readable name, primarily used for display purposes.  READ-ONLY.",
+              "required": false,
+              "caseExact": false,
+              "mutability": "readOnly",
+              "returned": "default",
+              "uniqueness": "none"
+            },
+            {
+              "name": "type",
+              "type": "string",
+              "multiValued": false,
+              "description": "A label indicating the attribute's function, e.g., 'direct'.",
+              "required": false,
+              "caseExact": false,
+              "canonicalValues": [
+                "direct"
+              ],
+              "mutability": "readOnly",
+              "returned": "default",
+              "uniqueness": "none"
+            }
+          ],
+          "mutability": "readOnly",
+          "returned": "default"
+        }
+      ],
+      "meta": {
+        "resourceType": "Schema",
+        "location": "https://nervous-dingo-67.telebit.io/scim/Schemas/urn:ietf:params:scim:schemas:core:2.0:User"
+      }
+    },
+    {
+      "id": "urn:ietf:params:scim:schemas:core:2.0:Group",
+      "name": "Group",
+      "description": "Group",
+      "attributes": [
+        {
+          "name": "displayName",
+          "type": "string",
+          "multiValued": false,
+          "description": "A human-readable name for the Group. REQUIRED.",
+          "required": false,
+          "caseExact": false,
+          "mutability": "readWrite",
+          "returned": "default",
+          "uniqueness": "none"
+        },
+        {
+          "name": "members",
+          "type": "complex",
+          "multiValued": true,
+          "description": "A list of members of the Group.",
+          "required": false,
+          "subAttributes": [
+            {
+              "name": "id",
+              "type": "string",
+              "multiValued": false,
+              "description": "Identifier of the member of this Group.",
+              "required": false,
+              "caseExact": false,
+              "mutability": "immutable",
+              "returned": "default",
+              "uniqueness": "none"
+            },
+            {
+              "name": "type",
+              "type": "string",
+              "multiValued": false,
+              "description": "A label indicating the type of resource, e.g., 'User' or 'Group'.",
+              "required": false,
+              "caseExact": false,
+              "canonicalValues": [
+                "User"
+              ],
+              "mutability": "immutable",
+              "returned": "default",
+              "uniqueness": "none"
+            }
+          ],
+          "mutability": "readWrite",
+          "returned": "default"
+        }
+      ],
+      "meta": {
+        "resourceType": "Schema",
+        "location": "https://nervous-dingo-67.telebit.io/scim/Schemas/urn:ietf:params:scim:schemas:core:2.0:Group"
+      }
+    }
+  ]
+}
+
+
+
+
