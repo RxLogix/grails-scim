@@ -1,6 +1,7 @@
 package grails.plugins.scim
 
 import grails.plugins.*
+import grails.plugins.scim.binding.JsonScimApiDataBindingSourceCreator
 
 class GrailsScimGrailsPlugin extends Plugin {
 
@@ -41,7 +42,7 @@ Brief summary/description of the plugin.
 //    def scm = [ url: "http://svn.codehaus.org/grails-plugins/" ]
 
     Closure doWithSpring() { {->
-            // TODO Implement runtime spring config (optional)
+        jsonScimApiDataBindingSourceCreator(JsonScimApiDataBindingSourceCreator)
         }
     }
 
