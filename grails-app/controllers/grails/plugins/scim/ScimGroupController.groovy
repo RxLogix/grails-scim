@@ -1,6 +1,7 @@
 package grails.plugins.scim
 
 import grails.converters.JSON
+import grails.plugins.scim.exceptions.InvalidRequestDataException
 import grails.plugins.scim.exceptions.ResourceConflictException
 import grails.plugins.scim.exceptions.ResourceNotFoundException
 import grails.plugins.scim.messages.ErrorResponse
@@ -27,12 +28,15 @@ class ScimGroupController {
         try {
             result = scimGroupService.save(scimGroup)
             response.status = 201
+        } catch (InvalidRequestDataException irde) {
+            result = new ErrorResponse(detail: irde.message, status: '400')
+            response.status = 400
         } catch (ResourceConflictException re) {
             log.error(re.message)
             result = new ErrorResponse(detail: re.message, status: '409')
             response.status = 409
         } catch (Exception ex) {
-            log.error("Unknown exception due to for group name save ${scimGroup.displayName} : ${ex.message}")
+            log.error("Unknown exception due to for group name save ${scimGroup.displayName}", ex)
             result = new ErrorResponse(detail: ex.message, status: '500')
             response.status = 500
         }
@@ -44,13 +48,16 @@ class ScimGroupController {
         def result
         try {
             result = scimGroupService.update(scimGroup)
-            response.status = 201
+            response.status = 200
+        } catch (InvalidRequestDataException irde) {
+            result = new ErrorResponse(detail: irde.message, status: '400')
+            response.status = 400
         } catch (ResourceNotFoundException rnfe) {
             log.error(rnfe.message)
-            result = new ErrorResponse(detail: rnfe.message, status: '404')
-            response.status = 404
+            result = new ErrorResponse(detail: rnfe.message, status: '409')
+            response.status = 409
         } catch (Exception ex) {
-            log.error("Unknown exception due to for group name update ${scimGroup.displayName} : ${ex.message}")
+            log.error("Unknown exception due to for group name update ${scimGroup.displayName}", ex)
             result = new ErrorResponse(detail: ex.message, status: '500')
             response.status = 500
         }
@@ -63,13 +70,16 @@ class ScimGroupController {
         def result
         try {
             result = scimGroupService.patch(patchRequest)
-            response.status = 200
+            response.status = 204
+        } catch (InvalidRequestDataException irde) {
+            result = new ErrorResponse(detail: irde.message, status: '400')
+            response.status = 400
         } catch (ResourceNotFoundException rnfe) {
             log.error(rnfe.message)
-            result = new ErrorResponse(detail: rnfe.message, status: '404')
-            response.status = 404
+            result = new ErrorResponse(detail: rnfe.message, status: '409')
+            response.status = 409
         } catch (Exception ex) {
-            log.error("Unknown exception due to for group patch update ${patchRequest.id} : ${ex.message}")
+            log.error("Unknown exception due to for group patch update ${patchRequest.id}", ex)
             result = new ErrorResponse(detail: ex.message, status: '500')
             response.status = 500
         }
@@ -88,7 +98,7 @@ class ScimGroupController {
             response.status = 404
             render(contentType: "application/scim+json", result as JSON)
         } catch (Exception ex) {
-            log.error("Unknown exception due to for group delete ${id} : ${ex.message}")
+            log.error("Unknown exception due to for group delete ${id}", ex)
             def result = new ErrorResponse(detail: ex.message, status: '500')
             response.status = 500
             render(contentType: "application/scim+json", result as JSON)

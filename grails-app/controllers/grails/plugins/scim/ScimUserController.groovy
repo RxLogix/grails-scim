@@ -1,6 +1,7 @@
 package grails.plugins.scim
 
 import grails.converters.JSON
+import grails.plugins.scim.exceptions.InvalidRequestDataException
 import grails.plugins.scim.exceptions.ResourceConflictException
 import grails.plugins.scim.exceptions.ResourceNotFoundException
 import grails.plugins.scim.exceptions.UnsupportedActionException
@@ -28,12 +29,15 @@ class ScimUserController {
         try {
             result = scimUserService.save(scimUser)
             response.status = 201
+        } catch (InvalidRequestDataException irde) {
+            result = new ErrorResponse(detail: irde.message, status: '400')
+            response.status = 400
         } catch (ResourceConflictException re) {
             log.error(re.message)
             result = new ErrorResponse(detail: re.message, status: '409')
             response.status = 409
         } catch (Exception ex) {
-            log.error("Unknown exception due to for username save ${scimUser.userName} : ${ex.message}")
+            log.error("Unknown exception due to for username save ${scimUser.userName}", ex)
             result = new ErrorResponse(detail: ex.message, status: '500')
             response.status = 500
         }
@@ -45,13 +49,16 @@ class ScimUserController {
         def result
         try {
             result = scimUserService.update(scimUser)
-            response.status = 201
-        } catch (ResourceNotFoundException rnfe) {
+            response.status = 200
+        } catch (InvalidRequestDataException irde) {
+            result = new ErrorResponse(detail: irde.message, status: '400')
+            response.status = 400
+        }  catch (ResourceNotFoundException rnfe) {
             log.error(rnfe.message)
-            result = new ErrorResponse(detail: rnfe.message, status: '404')
-            response.status = 404
+            result = new ErrorResponse(detail: rnfe.message, status: '409')
+            response.status = 409
         } catch (Exception ex) {
-            log.error("Unknown exception due to for username update ${scimUser.userName} : ${ex.message}")
+            log.error("Unknown exception due to for username update ${scimUser.userName}", ex)
             result = new ErrorResponse(detail: ex.message, status: '500')
             response.status = 500
         }
@@ -64,13 +71,16 @@ class ScimUserController {
         def result
         try {
             result = scimUserService.patch(patchRequest)
-            response.status = 200
+            response.status = 204
+        } catch (InvalidRequestDataException irde) {
+            result = new ErrorResponse(detail: irde.message, status: '400')
+            response.status = 400
         } catch (ResourceNotFoundException rnfe) {
             log.error(rnfe.message)
-            result = new ErrorResponse(detail: rnfe.message, status: '404')
-            response.status = 404
+            result = new ErrorResponse(detail: rnfe.message, status: '409')
+            response.status = 409
         } catch (Exception ex) {
-            log.error("Unknown exception due to for username patch ${patchRequest.id} : ${ex.message}")
+            log.error("Unknown exception due to for username patch ${patchRequest.id}", ex)
             result = new ErrorResponse(detail: ex.message, status: '500')
             response.status = 500
         }
@@ -93,7 +103,7 @@ class ScimUserController {
             response.status = 501
             render(contentType: "application/scim+json", result as JSON)
         } catch (Exception ex) {
-            log.error("Unknown exception due to for user delete ${id} : ${ex.message}")
+            log.error("Unknown exception due to for user delete ${id}", ex)
             def result = new ErrorResponse(detail: ex.message, status: '500')
             response.status = 500
             render(contentType: "application/scim+json", result as JSON)
