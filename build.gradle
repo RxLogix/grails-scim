@@ -13,7 +13,7 @@ buildscript {
     }
 }
 
-version "1.0-M1"
+version "1.0-M2"
 
 group "org.grails.plugins"
 

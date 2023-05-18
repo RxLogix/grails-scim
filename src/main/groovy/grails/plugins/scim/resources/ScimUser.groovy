@@ -17,4 +17,9 @@ class ScimUser implements Validateable {
     Set<String> schemas = ['urn:ietf:params:scim:schemas:core:2.0:User'] as Set
     Meta meta
     String type = 'User'
+
+    //In case of Group User binding
+    void setValue(String value) {
+        this.id = value
+    }
 }

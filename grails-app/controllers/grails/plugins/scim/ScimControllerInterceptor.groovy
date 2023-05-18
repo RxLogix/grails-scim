@@ -1,8 +1,9 @@
 package grails.plugins.scim
 
 import grails.util.Holders
+import groovy.util.logging.Slf4j
 
-
+@Slf4j
 class ScimControllerInterceptor {
 
     String apiToken = Holders.config.grails.scim.api_token
