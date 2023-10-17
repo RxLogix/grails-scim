@@ -13,7 +13,7 @@ buildscript {
     }
 }
 
-version "1.0-M2"
+version "1.0-M3"
 
 group "org.grails.plugins"
 
@@ -81,7 +81,8 @@ jar {
                     "Plugin-Title"          : project.name,
                     "Plugin-Build-Timestamp": new Date().format("yyyy-MM-dd'T'HH:mm:ssZ"),
                     "Git-Commit"            : "${-> project.ext.gitProps['git.commit.id.abbrev']}",
-                    "Git-Branch"            : "${-> project.ext.gitProps['git.branch']}"])
+                    "Git-Branch"            : "${-> project.ext.gitProps['git.branch']}",
+                    "Published-By"          : nexusUsername]) //Pass via commandline properties -PnexusUsername which work for below as well. 
     }
     from sourceSets.main.output
     exclude 'git.properties'

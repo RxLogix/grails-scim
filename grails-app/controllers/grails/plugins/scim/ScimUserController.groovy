@@ -17,9 +17,9 @@ class ScimUserController {
 
     def scimUserService
 
-    def index(String filter, Integer count, Integer startIndex, String excludedAttributes) {
+    def index(String filter, Integer count, Integer startIndex, String excludedAttributes, String attributes) {
         log.trace("User search via SCIM for filter: ${filter}, ${excludedAttributes}")
-        ListResponse listResponse = scimUserService.list(filter, count, startIndex, excludedAttributes)
+        ListResponse listResponse = scimUserService.list(filter, count, startIndex, excludedAttributes, attributes)
         render(contentType: "application/scim+json", listResponse as JSON)
     }
 
@@ -110,11 +110,11 @@ class ScimUserController {
         }
     }
 
-    def show(String id, String excludedAttributes) {
-        log.trace("Show request for User : ${id} via SCIM : ${excludedAttributes}")
+    def show(String id, String excludedAttributes, String attributes) {
+        log.trace("Show request for User : ${id} via SCIM : ${excludedAttributes} and attributes : ${attributes}")
         def result
         try {
-            result = scimUserService.getUser(id, excludedAttributes)
+            result = scimUserService.getUser(id, excludedAttributes, attributes)
             response.status = 200
         } catch (ResourceNotFoundException rnfe) {
             log.error(rnfe.message)
