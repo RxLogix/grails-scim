@@ -41,8 +41,13 @@ Brief summary/description of the plugin.
     // Online location of the plugin's browseable source code.
 //    def scm = [ url: "http://svn.codehaus.org/grails-plugins/" ]
 
-    Closure doWithSpring() { {->
-        jsonScimApiDataBindingSourceCreator(JsonScimApiDataBindingSourceCreator)
+    Closure doWithSpring() {
+        { ->
+            if (!grailsApplication.config.grails.scim.enabled) {
+                return
+            }
+            println "Loading scim plugin...."
+            jsonScimApiDataBindingSourceCreator(JsonScimApiDataBindingSourceCreator)
         }
     }
 

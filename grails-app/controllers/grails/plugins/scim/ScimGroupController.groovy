@@ -16,9 +16,9 @@ class ScimGroupController {
 
     def scimGroupService
 
-    def index(String filter, Integer count, Integer startIndex, String excludedAttributes) {
+    def index(String filter, Integer count, Integer startIndex, String excludedAttributes, String attributes) {
         log.trace("Group search via SCIM for filter: ${filter}, ${excludedAttributes}")
-        ListResponse listResponse = scimGroupService.list(filter, count, startIndex, excludedAttributes)
+        ListResponse listResponse = scimGroupService.list(filter, count, startIndex, excludedAttributes, attributes)
         render(contentType: "application/scim+json", listResponse as JSON)
     }
 
@@ -106,11 +106,11 @@ class ScimGroupController {
 
     }
 
-    def show(String id, String excludedAttributes) {
-        log.trace("Show request for Group : ${id} via SCIM : ${excludedAttributes}")
+    def show(String id, String excludedAttributes, String attributes) {
+        log.trace("Show request for Group : ${id} via SCIM : ${excludedAttributes} and attributes : ${attributes}")
         def result
         try {
-            result = scimGroupService.getGroup(id, excludedAttributes)
+            result = scimGroupService.getGroup(id, excludedAttributes, attributes)
             response.status = 200
         } catch (ResourceNotFoundException rnfe) {
             log.error(rnfe.message)
