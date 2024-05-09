@@ -10,23 +10,25 @@ buildscript {
     dependencies {
         classpath "org.grails:grails-gradle-plugin:$grailsVersion"
         classpath "com.gorylenko.gradle-git-properties:com.gorylenko.gradle-git-properties.gradle.plugin:1.5.2"
+        classpath "org.grails.plugins:hibernate5:7.0.5"
+        classpath "gradle.plugin.com.github.erdi.webdriver-binaries:webdriver-binaries-gradle-plugin:2.0"
+        classpath "com.bertramlabs.plugins:asset-pipeline-gradle:3.2.4"
     }
 }
 
-version "1.0-M3"
+version "4.0-M1-test4"
 
 group "org.grails.plugins"
 
 apply plugin: 'eclipse'
 apply plugin: 'idea'
 apply plugin: "org.grails.grails-plugin"
-apply plugin: "org.grails.grails-plugin-publish"
+apply plugin: "maven-publish"
 apply plugin: "org.grails.grails-gsp"
 apply plugin: "com.gorylenko.gradle-git-properties"
 
 ext {
     grailsVersion = project.grailsVersion
-    gradleWrapperVersion = project.gradleWrapperVersion
 }
 
 
@@ -38,6 +40,12 @@ repositories {
     mavenCentral()
     maven { url "https://repo.grails.org/grails/core" }
 }
+configurations {
+    developmentOnly
+    runtimeClasspath {
+        extendsFrom developmentOnly
+    }
+}
 
 dependencies {
     provided 'org.springframework.boot:spring-boot-starter-logging'
@@ -47,17 +55,12 @@ dependencies {
 
     provided "org.grails:grails-web-boot"
     provided "org.grails:grails-dependencies"
-    provided 'javax.servlet:javax.servlet-api:3.1.0'
-
-    testCompile "org.grails:grails-plugin-testing"
+    provided 'javax.servlet:javax.servlet-api'
 
     console "org.grails:grails-console"
 
 }
 
-task wrapper(type: Wrapper) {
-    gradleVersion = gradleWrapperVersion
-}
 
 task sourceJar(type: Jar) {
     classifier = 'sources'

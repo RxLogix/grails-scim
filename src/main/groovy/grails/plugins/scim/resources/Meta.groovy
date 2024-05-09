@@ -3,7 +3,7 @@ package grails.plugins.scim.resources
 import grails.plugins.scim.utils.ScimUtil
 import groovy.transform.CompileStatic
 
-@CompileStatic
+//@CompileStatic // commented due to compile failure as format method is not present
 class Meta {
 
     String created
