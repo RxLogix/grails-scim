@@ -16,13 +16,13 @@ class ScimControllerInterceptor {
     }
 
     boolean before() {
-        if (!grailsApplication.config.getProperty("grails.scim.enabled",String.class)) {
+        if (!grailsApplication.config.getProperty("grails.scim.enabled",Boolean.class)) {
             log.debug('Scim is not enabled for this env.')
             render text: 'SCIM is not enabled', status: HttpStatus.FORBIDDEN
             return false
         }
         String[] bearer = request.getHeader("Authorization")?.split(" ") ?: []
-        String apiToken = grailsApplication.getConfig().getProperty("grails.scim.api_token", String.class)
+        String apiToken = grailsApplication.getConfig().getProperty("grails.scim.api_token", Boolean.class)
         if (bearer.size() > 1 && bearer.last() == apiToken) {
             log.trace("Valid scim access token by Ip Address: {}", getClientIP(request))
             true

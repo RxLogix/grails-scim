@@ -43,7 +43,7 @@ Brief summary/description of the plugin.
 
     Closure doWithSpring() {
         { ->
-            if (!grailsApplication.config.grails.scim.enabled) {
+            if (!grailsApplication.config.getProperty("grails.scim.enabled",Boolean.class)) {
                 return
             }
             println "Loading scim plugin...."
