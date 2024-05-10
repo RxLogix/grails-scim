@@ -19,19 +19,19 @@ class ScimGroupService {
     ScimResourceRepository scimGroupRepository
 
     ScimGroup getGroup(String groupId, String excludedAttributes, String includeAttributes) {
-        scimGroupRepository.get(groupId, getExcludedProperties(excludedAttributes, includeAttributes))
+        (ScimGroup) scimGroupRepository.get(groupId, getExcludedProperties(excludedAttributes, includeAttributes))
     }
 
     ScimGroup save(ScimGroup user) throws ResourceConflictException {
-        scimGroupRepository.save(user)
+        (ScimGroup)  scimGroupRepository.save(user)
     }
 
     ScimGroup update(ScimGroup group) throws ResourceNotFoundException {
-        scimGroupRepository.update(group)
+        (ScimGroup)  scimGroupRepository.update(group)
     }
 
     ScimGroup patch(PatchRequest patchRequest) throws ResourceNotFoundException {
-        scimGroupRepository.patch(patchRequest)
+        (ScimGroup)  scimGroupRepository.patch(patchRequest)
     }
 
     void delete(String id) {

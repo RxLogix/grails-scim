@@ -1,36 +1,20 @@
-buildscript {
-    ext {
-        grailsVersion = project.grailsVersion
-    }
-    repositories {
-        mavenLocal()
-        maven { url "https://plugins.gradle.org/m2/" }
-        maven { url "https://repo.grails.org/grails/core" }
-    }
-    dependencies {
-        classpath "org.grails:grails-gradle-plugin:$grailsGradlePluginVersion"
-        classpath "org.grails.plugins:hibernate5:7.3.0"
-        classpath "com.bertramlabs.plugins:asset-pipeline-gradle:3.4.7"
-        classpath "com.gorylenko.gradle-git-properties:com.gorylenko.gradle-git-properties.gradle.plugin:1.5.2"
-    }
+plugins {
+    id "groovy"
+    id "idea"
+    id "eclipse"
+    id "org.grails.grails-plugin"
+    id "com.gorylenko.gradle-git-properties"
+    id "java-library"
+    id "maven-publish"
 }
-
-version "5.x-M1"
 
 group "org.grails.plugins"
 
-apply plugin: 'eclipse'
-apply plugin: 'idea'
-apply plugin: "org.grails.grails-plugin"
-apply plugin: "org.grails.grails-gsp"
-apply plugin: "com.gorylenko.gradle-git-properties"
-apply plugin: "java-library"
-apply plugin: "maven-publish"
 
+java {
+    sourceCompatibility = JavaVersion.toVersion("11")
+}
 
-
-sourceCompatibility = 1.8
-targetCompatibility = 1.8
 
 repositories {
     mavenLocal()
@@ -38,9 +22,12 @@ repositories {
     maven { url "https://repo.grails.org/grails/core" }
 }
 configurations {
-    developmentOnly
-    runtimeClasspath {
-        extendsFrom developmentOnly
+    all {
+        resolutionStrategy.eachDependency { DependencyResolveDetails details->
+            if (details.requested.group == 'org.seleniumhq.selenium') {
+                details.useVersion('4.19.1')
+            }
+        }
     }
 }
 

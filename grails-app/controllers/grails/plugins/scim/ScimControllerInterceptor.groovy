@@ -16,7 +16,7 @@ class ScimControllerInterceptor {
     }
 
     boolean before() {
-        if (!grailsApplication.config.getProperty("grails.scim.enabled",String.class)) {
+        if (!grailsApplication.config.getProperty("grails.scim.enabled",Boolean.class)) {
             log.debug('Scim is not enabled for this env.')
             render text: 'SCIM is not enabled', status: HttpStatus.FORBIDDEN
             return false
