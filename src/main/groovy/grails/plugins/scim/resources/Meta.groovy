@@ -3,7 +3,9 @@ package grails.plugins.scim.resources
 import grails.plugins.scim.utils.ScimUtil
 import groovy.transform.CompileStatic
 
-//@CompileStatic // commented due to compile failure as format method is not present
+import java.text.SimpleDateFormat
+
+@CompileStatic
 class Meta {
 
     String created
@@ -11,12 +13,15 @@ class Meta {
     String resourceType = "User"
     String location
 
-    void setCreated(Date date) {
-        this.created = date.format(ScimUtil.ISO_DATE_TIME_FORMAT)
+
+    public void setCreated(Date date) {
+        SimpleDateFormat dateFormat = new SimpleDateFormat(ScimUtil.ISO_DATE_TIME_FORMAT);
+        this.created = dateFormat.format(date);
     }
 
     void setLastModified(Date date) {
-        this.lastModified = date.format(ScimUtil.ISO_DATE_TIME_FORMAT)
+        SimpleDateFormat dateFormat = new SimpleDateFormat(ScimUtil.ISO_DATE_TIME_FORMAT)
+        this.lastModified = dateFormat.format(date);
     }
 
     void setLocation(String id) {
