@@ -6,7 +6,7 @@ import grails.plugins.scim.binding.JsonScimApiDataBindingSourceCreator
 class GrailsScimGrailsPlugin extends Plugin {
 
     // the version or versions of Grails the plugin is designed for
-    def grailsVersion = "3.3.9 > *"
+    def grailsVersion = "6.2.0 > *"
     // resources that are excluded from plugin packaging
     def pluginExcludes = [
         "grails-app/views/error.gsp"
