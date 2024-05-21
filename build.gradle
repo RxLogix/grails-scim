@@ -15,7 +15,7 @@ buildscript {
     }
 }
 
-version "5.x-M1"
+version "5.0-M1"
 
 group "org.grails.plugins"
 
@@ -64,6 +64,26 @@ task sourceJar(type: Jar) {
     from sourceSets.main.allSource
 }
 
+task packageJavadoc(type: Jar) {
+    from javadoc
+    classifier = 'javadoc'
+}
+
+task packageGroovydoc(type: Jar) {
+    from groovydoc
+    classifier = 'groovydoc'
+}
+bootRun {
+    ignoreExitValue true
+    jvmArgs(
+            '-Dspring.output.ansi.enabled=always',
+            '-noverify',
+            '-XX:TieredStopAtLevel=1',
+            '-Xmx1024m')
+    sourceResources sourceSets.main
+    String springProfilesActive = 'spring.profiles.active'
+    systemProperty springProfilesActive, System.getProperty(springProfilesActive)
+}
 
 gitProperties {
     keys = ['git.branch', 'git.commit.id', 'git.commit.time', 'git.commit.id.abbrev']
@@ -88,32 +108,29 @@ jar {
     exclude 'git.properties'
 }
 
+// enable if you wish to package this plugin as a standalone application
+bootJar.enabled = false
+
 publishing {
+
     publications {
         mavenJar(MavenPublication) {
-            pom.withXml {
-                def pomNode = asNode()
-                pomNode.dependencyManagement.replaceNode {}
-
-                // simply remove dependencies without a version
-                // version-less dependencies are handled with dependencyManagement
-                // see https://github.com/spring-gradle-plugins/dependency-management-plugin/issues/8 for more complete solutions
-                pomNode.dependencies.dependency.findAll {
-                    it.version.text().isEmpty()
-                }.each {
-                    it.replaceNode {}
-                }
-            }
             from components.java
+            artifact sourceJar
+            artifact packageJavadoc
+            artifact packageGroovydoc
         }
     }
+
     repositories {
         maven {
+            name = "NexusRepo"
             credentials {
-                username "nexusUsername"
-                password "nexusPassword"
+                username project.findProperty("nexusUsername") ?: System.getenv("NEXUS_USERNAME")
+                password project.findProperty("nexusPassword") ?: System.getenv("NEXUS_PASSWORD")
             }
-            url "http://10.100.3.6:8080/nexus/content/repositories/common-component-snapshots/"
+            url project.findProperty("nexusUrl") ?: System.getenv("NEXUS_URL")
         }
+
     }
 }
