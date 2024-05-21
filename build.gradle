@@ -130,6 +130,7 @@ publishing {
                 password project.findProperty("nexusPassword") ?: System.getenv("NEXUS_PASSWORD")
             }
             url project.findProperty("nexusUrl") ?: System.getenv("NEXUS_URL")
+            allowInsecureProtocol = true
         }
 
     }
