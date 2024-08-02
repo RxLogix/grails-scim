@@ -1,5 +1,5 @@
 applicationType: plugin
-defaultPackage: com.example
+defaultPackage: grails.scim
 testFramework: junit
 sourceLanguage: groovy
 buildTool: gradle

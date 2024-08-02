@@ -28,6 +28,10 @@ configurations {
                 details.useVersion('4.19.1')
             }
         }
+        exclude group: 'org.glassfish', module: 'javax.el' //vulnerable dependencies
+        exclude group: 'commons-collections', module: 'commons-collections'
+        exclude group: 'org.apache.commons', module: 'commons-compress'
+        exclude group: 'commons-fileupload', module: 'commons-fileupload'
     }
 }
 
@@ -42,10 +46,20 @@ dependencies {
     compileOnly 'javax.servlet:javax.servlet-api'
 
     console "org.grails:grails-console"
+    compileOnly 'ch.qos.logback:logback-classic:1.2.13'
+    compileOnly 'ch.qos.logback:logback-core:1.2.13'
 
 }
 
+tasks.withType(GroovyCompile) {
+    configure(groovyOptions) {
+        forkOptions.jvmArgs = ['-Xmx1024m']
+    }
+}
 
+tasks.withType(Test) {
+    useJUnitPlatform()
+}
 
 task sourceJar(type: Jar) {
     classifier = 'sources'
@@ -106,7 +120,7 @@ publishing {
                 password project.findProperty("nexusPassword") ?: System.getenv("NEXUS_PASSWORD")
             }
             url project.findProperty("nexusUrl") ?: System.getenv("NEXUS_URL")
-            allowInsecureProtocol = true
+            allowInsecureProtocol = project.findProperty("isNexusUrlInsecure") ? true : false
         }
 
     }

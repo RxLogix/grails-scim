@@ -14,32 +14,15 @@ class GrailsScimGrailsPlugin extends Plugin {
 
     // TODO Fill in these fields
     def title = "Grails Scim" // Headline display name of the plugin
-    def author = "Farhan Ali"
-    def authorEmail = "farhan.ali@rxlogix.com"
+    def author = "RxLogix"
+    def authorEmail = ""
     def description = '''\
-Brief summary/description of the plugin.
+    Grails Scim is a plugin library for dealing with scim interface integration for user/group resources.
 '''
-    def profiles = ['web']
+    def profiles = ['plugin']
 
     // URL to the plugin's documentation
-    def documentation = "http://grails.org/plugin/grails-scim"
-
-    // Extra (optional) plugin metadata
-
-    // License: one of 'APACHE', 'GPL2', 'GPL3'
-//    def license = "APACHE"
-
-    // Details of company behind the plugin (if there is one)
-//    def organization = [ name: "My Company", url: "http://www.my-company.com/" ]
-
-    // Any additional developers beyond the author specified above.
-//    def developers = [ [ name: "Joe Bloggs", email: "joe@bloggs.net" ]]
-
-    // Location of the plugin's issue tracker.
-//    def issueManagement = [ system: "JIRA", url: "http://jira.grails.org/browse/GPMYPLUGIN" ]
-
-    // Online location of the plugin's browseable source code.
-//    def scm = [ url: "http://svn.codehaus.org/grails-plugins/" ]
+    def documentation = "https://github.com/RxLogix/grails-scim"
 
     Closure doWithSpring() {
         { ->
