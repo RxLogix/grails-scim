@@ -17,8 +17,7 @@
 
 package grails.plugins.scim.exceptions
 
-import groovy.transform.CompileStatic;
-
+import groovy.transform.CompileStatic
 
 /**
  * Signals the specified resource; for example, User, does not exist.
@@ -27,26 +26,23 @@ import groovy.transform.CompileStatic;
  */
 
 @CompileStatic
-public class ResourceNotFoundException extends Exception
-{
-  private static final long serialVersionUID = -1384059700223818255L;
+class ResourceNotFoundException extends Exception {
 
-  private static final String ID_ERROR_MESSAGE = "Resource %s not found";
+    private static final long serialVersionUID = -1384059700223818255L
+    private static final String ID_ERROR_MESSAGE = "Resource %s not found"
 
-  public ResourceNotFoundException(final int id) {
-    this(String.format(ID_ERROR_MESSAGE, id));
-  }
+    public ResourceNotFoundException(final int id) {
+      this(String.format(ID_ERROR_MESSAGE, id))
+    }
 
-  /**
-   * Create a new <code>ResourceNotFoundException</code> from the provided
-   * information.
-   *
-   * @param errorMessage  The error message for this SCIM exception.
-   */
-  public ResourceNotFoundException(final String errorMessage) {
-    super(errorMessage);
-  }
-
-
+    /**
+     * Create a new <code>ResourceNotFoundException</code> from the provided
+     * information.
+     *
+     * @param errorMessage  The error message for this SCIM exception.
+     */
+    public ResourceNotFoundException(final String errorMessage) {
+      super(errorMessage)
+    }
 
 }

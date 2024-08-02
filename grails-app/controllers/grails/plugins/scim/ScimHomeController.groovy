@@ -1,8 +1,6 @@
 package grails.plugins.scim
 
 import grails.converters.JSON
-import grails.plugins.scim.exceptions.ResourceConflictException
-import grails.plugins.scim.exceptions.ResourceNotFoundException
 import groovy.util.logging.Slf4j
 
 @Slf4j
@@ -36,4 +34,5 @@ class ScimHomeController {
         log.warn('ResourceTypes needs to be implemented.') //TODO
         render([] as JSON)
     }
+
 }

@@ -11,7 +11,6 @@ import grails.plugins.scim.resources.operations.PatchRequest
 import grails.plugins.scim.resources.ScimUser
 import groovy.util.logging.Slf4j
 
-
 @Slf4j
 class ScimUserController {
 
@@ -123,6 +122,5 @@ class ScimUserController {
         }
         render(contentType: "application/scim+json", result as JSON)
     }
-
 
 }

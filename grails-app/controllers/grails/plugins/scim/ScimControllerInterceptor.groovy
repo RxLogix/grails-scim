@@ -3,7 +3,6 @@ package grails.plugins.scim
 import grails.core.GrailsApplication
 import groovy.util.logging.Slf4j
 import org.springframework.http.HttpStatus
-
 import javax.servlet.http.HttpServletRequest
 
 @Slf4j
@@ -42,11 +41,10 @@ class ScimControllerInterceptor {
 
     private String getClientIP(HttpServletRequest request) {
         String ip = request.getHeader("X-FORWARDED-FOR")
-
         if (ip == null || ip.isEmpty()) {
             ip = request.getRemoteAddr()
         }
-
         return ip
     }
+
 }

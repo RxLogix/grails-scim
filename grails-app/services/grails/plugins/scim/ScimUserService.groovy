@@ -41,7 +41,6 @@ class ScimUserService {
         scimUserRepository.findAll(filter, count, startIndex, getExcludedProperties(excludedAttributes, includeAttributes))
     }
 
-
     private String getExcludedProperties(String excludedAttributes, String includeAttributes) {
         if (includeAttributes) {
             String additionalExcludes = (ScimUser.declaredFields.findAll {

@@ -10,17 +10,12 @@ plugins {
 
 group "org.grails.plugins"
 
-
-java {
-    sourceCompatibility = JavaVersion.toVersion("11")
-}
-
-
 repositories {
     mavenLocal()
     mavenCentral()
     maven { url "https://repo.grails.org/grails/core" }
 }
+
 configurations {
     all {
         resolutionStrategy.eachDependency { DependencyResolveDetails details->
@@ -51,6 +46,11 @@ dependencies {
 
 }
 
+java {
+    sourceCompatibility = JavaVersion.toVersion("11")
+    targetCompatibility = JavaVersion.toVersion("11")
+}
+
 tasks.withType(GroovyCompile) {
     configure(groovyOptions) {
         forkOptions.jvmArgs = ['-Xmx1024m']
@@ -76,7 +76,6 @@ task packageGroovydoc(type: Jar) {
     classifier = 'groovydoc'
 }
 
-
 gitProperties {
     keys = ['git.branch', 'git.commit.id', 'git.commit.time', 'git.commit.id.abbrev']
     failOnNoGitDirectory = true
@@ -94,12 +93,11 @@ jar {
                     "Plugin-Build-Timestamp": new Date().format("yyyy-MM-dd'T'HH:mm:ssZ"),
                     "Git-Commit"            : "${-> project.ext.gitProps['git.commit.id.abbrev']}",
                     "Git-Branch"            : "${-> project.ext.gitProps['git.branch']}",
-                    "Published-By"          : "nexusUsername"]) //Pass via commandline properties -PnexusUsername which work for below as well.
+                    "Published-By"          : "nexusUsername"])
     }
     from sourceSets.main.output
     exclude 'git.properties'
 }
-
 
 publishing {
 
@@ -122,6 +120,5 @@ publishing {
             url project.findProperty("nexusUrl") ?: System.getenv("NEXUS_URL")
             allowInsecureProtocol = project.findProperty("isNexusUrlInsecure") ? true : false
         }
-
     }
 }

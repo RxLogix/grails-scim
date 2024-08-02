@@ -10,7 +10,6 @@ import grails.plugins.scim.resources.operations.PatchRequest
 import grails.plugins.scim.resources.ScimGroup
 import groovy.util.logging.Slf4j
 
-
 @Slf4j
 class ScimGroupController {
 
@@ -86,7 +85,6 @@ class ScimGroupController {
         render(contentType: "application/scim+json", result as JSON)
     }
 
-
     def delete(String id) {
         log.trace("Delete request for Group : ${id} via SCIM")
         try {
@@ -103,7 +101,6 @@ class ScimGroupController {
             response.status = 500
             render(contentType: "application/scim+json", result as JSON)
         }
-
     }
 
     def show(String id, String excludedAttributes, String attributes) {
@@ -119,6 +116,5 @@ class ScimGroupController {
         }
         render(contentType: "application/scim+json", result as JSON)
     }
-
 
 }

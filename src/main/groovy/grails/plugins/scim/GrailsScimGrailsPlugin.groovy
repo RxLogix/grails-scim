@@ -2,7 +2,9 @@ package grails.plugins.scim
 
 import grails.plugins.*
 import grails.plugins.scim.binding.JsonScimApiDataBindingSourceCreator
+import groovy.util.logging.Slf4j
 
+@Slf4j
 class GrailsScimGrailsPlugin extends Plugin {
 
     // the version or versions of Grails the plugin is designed for
@@ -29,7 +31,7 @@ class GrailsScimGrailsPlugin extends Plugin {
             if (!grailsApplication.config.getProperty("grails.scim.enabled",Boolean.class)) {
                 return
             }
-            println "Loading scim plugin...."
+            log.info "Loading scim plugin...."
             jsonScimApiDataBindingSourceCreator(JsonScimApiDataBindingSourceCreator)
         }
     }
@@ -56,4 +58,5 @@ class GrailsScimGrailsPlugin extends Plugin {
     void onShutdown(Map<String, Object> event) {
         // TODO Implement code that is executed when the application shuts down (optional)
     }
+
 }

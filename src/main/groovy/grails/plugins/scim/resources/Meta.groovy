@@ -13,8 +13,7 @@ class Meta {
     String resourceType = "User"
     String location
 
-
-    public void setCreated(Date date) {
+    void setCreated(Date date) {
         SimpleDateFormat dateFormat = new SimpleDateFormat(ScimUtil.ISO_DATE_TIME_FORMAT);
         this.created = dateFormat.format(date);
     }

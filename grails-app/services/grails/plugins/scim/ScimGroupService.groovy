@@ -5,7 +5,6 @@ import grails.plugins.scim.exceptions.ResourceConflictException
 import grails.plugins.scim.exceptions.ResourceNotFoundException
 import grails.plugins.scim.messages.ListResponse
 import grails.plugins.scim.repositories.ScimResourceRepository
-import grails.plugins.scim.resources.ScimUser
 import grails.plugins.scim.resources.operations.PatchRequest
 import grails.plugins.scim.resources.ScimGroup
 import groovy.transform.CompileStatic
@@ -51,4 +50,5 @@ class ScimGroupService {
         }
         return excludedAttributes
     }
+
 }

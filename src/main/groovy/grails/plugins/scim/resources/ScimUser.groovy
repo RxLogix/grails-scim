@@ -5,6 +5,7 @@ import groovy.transform.CompileStatic
 
 @CompileStatic
 class ScimUser implements Validateable {
+
     String id
     String externalId
     String userName
@@ -22,4 +23,5 @@ class ScimUser implements Validateable {
     void setValue(String value) {
         this.id = value
     }
+
 }
