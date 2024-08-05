@@ -4,9 +4,14 @@ Grails Scim is a Grails 6.2.0 plugin library for dealing with scim interface int
 
 ## Installation
 
-
+Grails 3.x:
 ```groovy
-implemenation 'org.grails.plugins:grails-scim:2.0.0'
+implemenation 'org.grails.plugins:grails-scim:1.0-M3'
+```
+
+Grails 6.x:
+```groovy
+implemenation 'org.grails.plugins:grails-scim:2.0-M1'
 ```
 
 ## Usage
