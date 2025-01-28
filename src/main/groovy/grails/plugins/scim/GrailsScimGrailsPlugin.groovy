@@ -2,6 +2,7 @@ package grails.plugins.scim
 
 import grails.plugins.*
 import grails.plugins.scim.binding.JsonScimApiDataBindingSourceCreator
+import grails.plugins.scim.binding.DataBindingSourceRegistryUpdater
 import groovy.util.logging.Slf4j
 
 @Slf4j
@@ -33,6 +34,7 @@ class GrailsScimGrailsPlugin extends Plugin {
             }
             log.info "Loading scim plugin...."
             jsonScimApiDataBindingSourceCreator(JsonScimApiDataBindingSourceCreator)
+            dataBindingSourceRegistryUpdater(DataBindingSourceRegistryUpdater)
         }
     }
 
