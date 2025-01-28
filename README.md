@@ -11,7 +11,7 @@ compile 'org.grails.plugins:grails-scim:1.0-M3'
 
 Grails 6.x:
 ```groovy
-implemenation 'org.grails.plugins:grails-scim:2.0-M1'
+implemenation 'org.grails.plugins:grails-scim:2.0-M2'
 ```
 
 ## Usage
