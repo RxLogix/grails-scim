@@ -1,12 +1,17 @@
 # Grails Scim
 
-Grails Scim is a Grails 3.3.x plugin library for dealing with scim interface integration for user/group resources. It does expose rest endpoint which does consume by SCIM provider to send User/Group onboarding details on the server using SCIM contracts.
+Grails Scim is a Grails 6.2.0 plugin library for dealing with scim interface integration for user/group resources. It does expose rest endpoint which does consume by SCIM provider to send User/Group onboarding details on the server using SCIM contracts.
 
 ## Installation
 
-
+Grails 3.x:
 ```groovy
 compile 'org.grails.plugins:grails-scim:1.0-M3'
+```
+
+Grails 6.x:
+```groovy
+implemenation 'org.grails.plugins:grails-scim:2.0-M2'
 ```
 
 ## Usage

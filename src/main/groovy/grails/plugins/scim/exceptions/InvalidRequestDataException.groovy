@@ -1,5 +1,6 @@
 package grails.plugins.scim.exceptions
 
+import groovy.transform.CompileStatic
 
 /**
  * Signals the specified request is invalid due to validation of incoming data.
@@ -7,10 +8,10 @@ package grails.plugins.scim.exceptions
  * This exception corresponds to HTTP response code 400 Invalid Request.
  */
 
-class InvalidRequestDataException extends Exception
-{
+@CompileStatic
+class InvalidRequestDataException extends Exception {
 
-    private static final long serialVersionUID = -7605955982293892224L;
+    private static final long serialVersionUID = -7605955982293892224L
 
     /**
      * Create a new <code>InvalidRequestDataException</code> from the provided
@@ -19,7 +20,7 @@ class InvalidRequestDataException extends Exception
      * @param errorMessage  The error message for this SCIM exception.
      */
     public InvalidRequestDataException(final String errorMessage) {
-        super(errorMessage);
+        super(errorMessage)
     }
 
 }

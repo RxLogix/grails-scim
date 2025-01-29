@@ -17,8 +17,7 @@
 
 package grails.plugins.scim.exceptions;
 
-
-import groovy.transform.CompileStatic;
+import groovy.transform.CompileStatic
 
 /**
  * Signals the specified version number does not match the resource's latest
@@ -28,19 +27,19 @@ import groovy.transform.CompileStatic;
  * This exception corresponds to HTTP response code 409 CONFLICT.
  */
 @CompileStatic
-public class ResourceConflictException extends Exception
-{
+class ResourceConflictException extends Exception {
 
-  private static final long serialVersionUID = -5605955982293892224L;
+    private static final long serialVersionUID = -5605955982293892224L
 
-  /**
-   * Create a new <code>ResourceConflictException</code> from the provided
-   * information.
-   *
-   * @param errorMessage  The error message for this SCIM exception.
-   */
-  public ResourceConflictException(final String errorMessage) {
-    super(errorMessage);
-  }
+    /**
+     * Create a new <code>ResourceConflictException</code> from the provided
+     * information.
+     *
+     * @param errorMessage  The error message for this SCIM exception.
+     */
+
+    public ResourceConflictException(final String errorMessage) {
+      super(errorMessage)
+    }
 
 }

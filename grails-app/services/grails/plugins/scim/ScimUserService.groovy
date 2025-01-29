@@ -18,19 +18,19 @@ class ScimUserService {
     ScimResourceRepository scimUserRepository
 
     ScimUser getUser(String scimId, String excludedAttributes, String includeAttributes) {
-        scimUserRepository.get(scimId, getExcludedProperties(excludedAttributes, includeAttributes))
+        (ScimUser) scimUserRepository.get(scimId, getExcludedProperties(excludedAttributes, includeAttributes))
     }
 
     ScimUser save(ScimUser user) throws ResourceConflictException {
-        scimUserRepository.save(user)
+        (ScimUser) scimUserRepository.save(user)
     }
 
     ScimUser update(ScimUser user) throws ResourceNotFoundException {
-        scimUserRepository.update(user)
+        (ScimUser)   scimUserRepository.update(user)
     }
 
     ScimUser patch(PatchRequest patchRequest) throws ResourceNotFoundException {
-        scimUserRepository.patch(patchRequest)
+        (ScimUser)  scimUserRepository.patch(patchRequest)
     }
 
     void delete(String id) {
@@ -40,7 +40,6 @@ class ScimUserService {
     ListResponse list(String filter, Integer count, Integer startIndex, String excludedAttributes, String includeAttributes) {
         scimUserRepository.findAll(filter, count, startIndex, getExcludedProperties(excludedAttributes, includeAttributes))
     }
-
 
     private String getExcludedProperties(String excludedAttributes, String includeAttributes) {
         if (includeAttributes) {

@@ -20,4 +20,5 @@ class BootStrap {
         map.remove('class')
         return map
     }
+
 }

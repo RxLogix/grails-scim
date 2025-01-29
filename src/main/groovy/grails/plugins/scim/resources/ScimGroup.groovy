@@ -5,6 +5,7 @@ import groovy.transform.CompileStatic
 
 @CompileStatic
 class ScimGroup implements Validateable {
+
     String id
     String externalId
     String displayName
@@ -12,4 +13,5 @@ class ScimGroup implements Validateable {
     List<ScimUser> members = []
     Meta meta
     Set<String> schemas = ['urn:ietf:params:scim:schemas:core:2.0:Group'] as Set
+
 }
