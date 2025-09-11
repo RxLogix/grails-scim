@@ -7,11 +7,11 @@ import org.grails.web.databinding.bindingsource.JsonApiDataBindingSourceCreator
 @CompileStatic
 class JsonScimApiDataBindingSourceCreator extends JsonApiDataBindingSourceCreator {
 
-    MimeType SCIM_JSON_API = new MimeType('application/scim+json', "json")
+    private static final MimeType SCIM_JSON = new MimeType('application/scim+json', 'json')
+    private static final MimeType SCIM_JSON_UTF8 = new MimeType('application/scim+json;charset=utf-8', 'json')
 
     @Override
     MimeType[] getMimeTypes() {
-        [SCIM_JSON_API] as MimeType[]
+        return [SCIM_JSON, SCIM_JSON_UTF8] as MimeType[]
     }
-
 }
