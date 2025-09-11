@@ -15,14 +15,13 @@ class JsonScimApiDataBindingSourceCreator extends JsonApiDataBindingSourceCreato
 
     @Override
     MimeType[] getMimeTypes() {
-        List<String> configuredMimeTypes = (List<String>) grailsApplication.config.getProperty(
-                "grails.scim.mime.types", List
-        )
-
-        if (configuredMimeTypes != null && !configuredMimeTypes.isEmpty()) {
+        List configured = grailsApplication.config.getProperty("grails.scim.mime.types", List)
+        if (configured != null && configured instanceof List) {
             List<MimeType> mimeTypes = []
-            for (String mime : configuredMimeTypes) {
-                mimeTypes << new MimeType(mime, "json")
+            for (Object mimeObj : configured) {
+                if (mimeObj instanceof String) {
+                    mimeTypes << new MimeType((String) mimeObj, "json")
+                }
             }
             return mimeTypes as MimeType[]
         }
