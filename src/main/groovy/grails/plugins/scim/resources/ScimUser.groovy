@@ -15,11 +15,28 @@ class ScimUser implements Validateable {
     Boolean active
     List<Email> emails = []
     List<ScimGroup> groups = []
-    Set<String> schemas = ['urn:ietf:params:scim:schemas:core:2.0:User'] as Set
+
+    // SCIM Extension
+    CustomUserExtension customExtension
+
+    Set<String> schemas = [
+            'urn:ietf:params:scim:schemas:core:2.0:User'
+    ] as Set
+
     Meta meta
     String type = 'User'
 
-    //In case of Group User binding
+    static final String EXT_URN =
+            'urn:ietf:params:scim:schemas:extension:custom:2.0:User'
+
+    Set<String> getSchemas() {
+        if (customExtension?.tenants) {
+            return schemas + [EXT_URN]
+        }
+        return schemas
+    }
+
+    // In case of Group User binding
     void setValue(String value) {
         this.id = value
     }

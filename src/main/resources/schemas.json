@@ -1,7 +1,7 @@
 {
-  "totalResults":2,
+  "totalResults":4,
   "startIndex":1,
-  "itemsPerPage":2,
+  "itemsPerPage":4,
   "schemas":[
     "urn:ietf:params:scim:api:messages:2.0:ListResponse"
   ],
@@ -230,6 +230,50 @@
       "meta": {
         "resourceType": "Schema",
         "location": "https://nervous-dingo-67.telebit.io/scim/Schemas/urn:ietf:params:scim:schemas:core:2.0:Group"
+      }
+    },
+    {
+      "id": "urn:ietf:params:scim:schemas:extension:custom:2.0:User",
+      "name": "CustomUser",
+      "description": "Custom tenant attributes for users",
+      "attributes": [
+        {
+          "name": "tenants",
+          "type": "string",
+          "multiValued": true,
+          "description": "List of tenant IDs the user belongs to",
+          "required": false,
+          "caseExact": true,
+          "mutability": "readWrite",
+          "returned": "default",
+          "uniqueness": "none"
+        }
+      ],
+      "meta": {
+        "resourceType": "Schema",
+        "location": "https://nervous-dingo-67.telebit.io/scim/Schemas/urn:ietf:params:scim:schemas:extension:custom:2.0:User"
+      }
+    },
+    {
+      "id": "urn:ietf:params:scim:schemas:extension:custom:2.0:Group",
+      "name": "CustomGroup",
+      "description": "Custom attributes for tenant mapping on Groups",
+      "attributes": [
+        {
+          "name": "tenant",
+          "type": "string",
+          "multiValued": false,
+          "description": "Tenant ID that owns or is associated with this group",
+          "required": false,
+          "caseExact": true,
+          "mutability": "readWrite",
+          "returned": "default",
+          "uniqueness": "none"
+        }
+      ],
+      "meta": {
+        "resourceType": "Schema",
+        "location": "https://YOUR-HOST/scim/Schemas/urn:ietf:params:scim:schemas:extension:custom:2.0:Group"
       }
     }
   ]

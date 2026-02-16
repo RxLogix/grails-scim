@@ -11,7 +11,7 @@ compile 'org.grails.plugins:grails-scim:1.0-M3'
 
 Grails 6.x:
 ```groovy
-implemenation 'org.grails.plugins:grails-scim:2.0-M2'
+implemenation 'org.grails.plugins:grails-scim:3.0-test'
 ```
 
 ## Usage
@@ -39,7 +39,10 @@ URLMapping.groovy
 
      group '/scim/v2', {
     
+                '/docs/scim-auth'(controller: 'scimHome', action: 'scimAuthDocs')
+         
                 '/Schemas'(controller: 'scimHome', action: 'schemas')
+         
                 "/Schemas/$id"(controller: 'scimHome', action: 'schemas')
     
                 '/ResourceTypes'(controller: 'scimHome', action: 'resourceTypes')

@@ -1,5 +1,6 @@
 package grails.plugins.scim
 
+import grails.converters.JSON
 import grails.core.GrailsApplication
 import groovy.util.logging.Slf4j
 import org.springframework.http.HttpStatus
@@ -15,7 +16,7 @@ class ScimControllerInterceptor {
     }
 
     boolean before() {
-        if (!grailsApplication.config.getProperty("grails.scim.enabled",Boolean.class)) {
+        if (!grailsApplication.config.getProperty("grails.scim.enabled", Boolean.class)) {
             log.debug('Scim is not enabled for this env.')
             render text: 'SCIM is not enabled', status: HttpStatus.FORBIDDEN
             return false
@@ -27,7 +28,7 @@ class ScimControllerInterceptor {
             true
         } else {
             log.warn("Invalid scim token for accessing via {} by Ip Address: {}", request.getHeader("Authorization"), getClientIP(request))
-            render text: "UNAUTHORIZED access on scim endpoint", status: HttpStatus.UNAUTHORIZED
+            unauthorized("UNAUTHORIZED access on scim endpoint")
             return false
         }
     }
@@ -45,6 +46,15 @@ class ScimControllerInterceptor {
             ip = request.getRemoteAddr()
         }
         return ip
+    }
+
+    private void unauthorized(String message) {
+        response.status = HttpStatus.UNAUTHORIZED.value()
+        render([
+                schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
+                status : "401",
+                detail : message
+        ] as JSON)
     }
 
 }
