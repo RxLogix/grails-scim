@@ -33,7 +33,9 @@ class GrailsScimGrailsPlugin extends Plugin {
                 return
             }
             log.info "Loading scim plugin...."
-            jsonScimApiDataBindingSourceCreator(JsonScimApiDataBindingSourceCreator)
+            jsonScimApiDataBindingSourceCreator(JsonScimApiDataBindingSourceCreator) {
+                grailsApplication = ref('grailsApplication')
+            }
             dataBindingSourceRegistryUpdater(DataBindingSourceRegistryUpdater)
         }
     }
