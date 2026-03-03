@@ -44,8 +44,9 @@ class ScimGroupController {
         renderScim(result, status)
     }
 
-    def update() {
+    def update(String id) {
         ScimGroup scimGroup = fromJson(request.JSON as Map)
+        scimGroup.id = id
         log.trace("Update request for Group : ${scimGroup?.id} via SCIM: ${scimGroup?.properties}")
         def result
         int status = 200
