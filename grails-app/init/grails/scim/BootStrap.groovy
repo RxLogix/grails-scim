@@ -3,6 +3,7 @@ package grails.scim
 import grails.converters.JSON
 import grails.plugins.scim.resources.ScimGroup
 import grails.plugins.scim.resources.ScimUser
+import grails.util.Holders
 
 class BootStrap {
 
@@ -39,7 +40,7 @@ class BootStrap {
             def ext = object.customExtension
             if (ext?.tenants) {
                 map[USER_EXT_URN] = [
-                        tenants: ext.tenants
+                        tenants: ext.tenants.join(Holders.config.getProperty('grails.scim.separator', ","))
                 ]
             }
         }

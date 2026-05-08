@@ -44,8 +44,9 @@ class ScimGroupController {
         renderScim(result, status)
     }
 
-    def update() {
+    def update(String id) {
         ScimGroup scimGroup = fromJson(request.JSON as Map)
+        scimGroup.id = id
         log.trace("Update request for Group : ${scimGroup?.id} via SCIM: ${scimGroup?.properties}")
         def result
         int status = 200
@@ -66,9 +67,11 @@ class ScimGroupController {
         renderScim(result, status)
     }
 
-    def patch(String id, PatchRequest patchRequest) {
-        log.trace("Patch request for Group : ${id} via SCIM: ${patchRequest?.properties}")
+    def patch(String id) {
+        PatchRequest patchRequest = new PatchRequest()
         patchRequest.id = id
+        bindData(patchRequest, request.JSON as Map)
+        log.trace("Patch request for Group : ${id} via SCIM: ${patchRequest?.properties}")
         def result
         int status = 204
         try {

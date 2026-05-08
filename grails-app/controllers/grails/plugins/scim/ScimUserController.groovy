@@ -45,9 +45,10 @@ class ScimUserController {
         renderScim(result, status)
     }
 
-    def update() {
+    def update(String id) {
         ScimUser scimUser = fromJson(request.JSON as Map)
-        log.trace("Update request for User via SCIM ${scimUser?.properties}")
+        scimUser.id = id
+        log.error("Update request for User via SCIM ${scimUser?.properties}")
         def result
         int status = 200
         try {
@@ -67,9 +68,11 @@ class ScimUserController {
         renderScim(result, status)
     }
 
-    def patch(String id, PatchRequest patchRequest) {
-        log.trace("Patch request for User : ${id} via SCIM ${patchRequest?.properties}")
+    def patch(String id) {
+        PatchRequest patchRequest = new PatchRequest()
         patchRequest.id = id
+        bindData(patchRequest, request.JSON as Map)
+        log.trace("Patch request for User : ${id} via SCIM ${patchRequest?.properties}")
         def result
         int status = 204
         try {
@@ -135,7 +138,7 @@ class ScimUserController {
         def ext = json[ScimUser.EXT_URN]
         if (ext instanceof Map) {
             user.customExtension = new CustomUserExtension(
-                    tenants: ext.tenants as Set<String>
+                    tenants: ext.tenants.split(grailsApplication.config.getProperty('grails.scim.separator', ","))
             )
         }
         return user
