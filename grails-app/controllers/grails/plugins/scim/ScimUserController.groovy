@@ -48,7 +48,7 @@ class ScimUserController {
     def update(String id) {
         ScimUser scimUser = fromJson(request.JSON as Map)
         scimUser.id = id
-        log.error("Update request for User via SCIM ${scimUser?.properties}")
+        log.trace("Update request for User via SCIM ${scimUser?.properties}")
         def result
         int status = 200
         try {
