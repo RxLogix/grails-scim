@@ -11,12 +11,12 @@ compile 'org.grails.plugins:grails-scim:1.0-M3'
 
 Grails 6.x:
 ```groovy
-implemenation 'org.grails.plugins:grails-scim:3.0-test1'
+implementation 'org.grails.plugins:grails-scim:3.0-M1'
 ```
 
 ## Usage
 
-### Declare and implement beans implementing interface ScimResourceRepositry for User and Group.
+### Declare and implement beans implementing interface ScimResourceRepository for User and Group.
 
 resources.groovy
 ```groovy
@@ -69,6 +69,20 @@ URLMapping.groovy
             }
 
 ```
+
+## Error Handling
+
+All endpoints return SCIM-compliant error responses with `application/scim+json` content type.
+
+| HTTP Status | Condition |
+|-------------|-----------|
+| 400 Bad Request | Invalid request data, or the `id` in the request body does not match the `id` in the URI for PUT requests |
+| 404 Not Found | Resource does not exist |
+| 409 Conflict | Resource already exists (POST/save) |
+| 500 Internal Server Error | Unexpected server error |
+| 501 Not Implemented | Operation not supported (User delete only) |
+
+> **Note:** PUT `/Users/$id` and PUT `/Groups/$id` validate that the `id` field in the JSON body matches the `$id` path parameter. A mismatch returns `400 Bad Request`.
 
 ## Contributing
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
