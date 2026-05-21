@@ -93,7 +93,7 @@ class ScimUserControllerSpec extends Specification implements ControllerUnitTest
     void "update should return 200 on success"() {
         given:
         request.contentType = 'application/json'
-        request.json = new JsonSlurper().parseText('{"userName": "john"}')
+        request.json = new JsonSlurper().parseText('{"userName": "john", "id": "123"}')
         def user = new ScimUser(userName: "john")
         scimUserService.update(_) >> user
 
@@ -102,6 +102,26 @@ class ScimUserControllerSpec extends Specification implements ControllerUnitTest
 
         then:
         response.status == 200
+    }
+
+    void "update should return 400 when payload id does not match uri id"() {
+        given:
+        def jsonPayload = '''
+            {
+                "id": "999",
+                "userName": "john"
+            }
+            '''
+
+        request.contentType = 'application/json'
+        request.json = new JsonSlurper().parseText(jsonPayload)
+
+        when:
+        controller.update("123")
+
+        then:
+        response.status == 400
+        0 * scimUserService.update(_)
     }
 
     void "update should return 400 on invalid request"() {
@@ -117,23 +137,23 @@ class ScimUserControllerSpec extends Specification implements ControllerUnitTest
         response.status == 400
     }
 
-    void "update should return 409 when user not found"() {
+    void "update should return 404 when user not found"() {
         given:
         request.contentType = 'application/json'
-        request.json = new JsonSlurper().parseText('{"userName": "john"}')
+        request.json = new JsonSlurper().parseText('{"userName": "john", "id":"123"}')
         scimUserService.update(_) >> { throw new ResourceNotFoundException("missing") }
 
         when:
         controller.update("123")
 
         then:
-        response.status == 409
+        response.status == 404
     }
 
     void "update should return 500 on unknown exception"() {
         given:
         request.contentType = 'application/json'
-        request.json = new JsonSlurper().parseText('{"userName": "john"}')
+        request.json = new JsonSlurper().parseText('{"userName": "john", "id": "123"}')
         scimUserService.update(_) >> { throw new RuntimeException("boom") }
 
         when:
@@ -172,7 +192,7 @@ class ScimUserControllerSpec extends Specification implements ControllerUnitTest
         response.status == 400
     }
 
-    void "patch should return 409 when user not found"() {
+    void "patch should return 404 when user not found"() {
         given:
         request.contentType = 'application/json'
         request.json = [:]
@@ -182,7 +202,7 @@ class ScimUserControllerSpec extends Specification implements ControllerUnitTest
         controller.patch("123")
 
         then:
-        response.status == 409
+        response.status == 404
     }
 
     void "patch should return 500 on unknown exception"() {

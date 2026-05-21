@@ -27,43 +27,45 @@ class ScimGroupController {
         ScimGroup scimGroup = fromJson(request.JSON as Map)
         log.trace("Save request for Group via SCIM: ${scimGroup?.properties}")
         def result
-        int status = HttpStatus.CREATED.value()
+        HttpStatus status = HttpStatus.CREATED
         try {
             result = scimGroupService.save(scimGroup)
         } catch (InvalidRequestDataException irde) {
-            result = new ErrorResponse(detail: irde.message, status: HttpStatus.BAD_REQUEST.value() as String)
-            status = HttpStatus.BAD_REQUEST.value()
+            status = HttpStatus.BAD_REQUEST
+            result = new ErrorResponse(detail: irde.message, status: status.value().toString())
         } catch (ResourceConflictException re) {
             log.error(re.message)
-            result = new ErrorResponse(detail: re.message, status: HttpStatus.CONFLICT.value() as String)
-            status = HttpStatus.CONFLICT.value()
+            status = HttpStatus.CONFLICT
+            result = new ErrorResponse(detail: re.message, status: status.value().toString())
         } catch (Exception ex) {
             log.error("Unknown exception due to for group name save ${scimGroup.displayName}", ex)
-            result = new ErrorResponse(detail: ex.message, status: HttpStatus.INTERNAL_SERVER_ERROR.value() as String)
-            status = HttpStatus.INTERNAL_SERVER_ERROR.value()
+            status = HttpStatus.INTERNAL_SERVER_ERROR
+            result = new ErrorResponse(detail: ex.message, status: status.value().toString())
         }
         renderScim(result, status)
     }
 
     def update(String id) {
         ScimGroup scimGroup = fromJson(request.JSON as Map)
-        scimGroup.id = id
-        log.trace("Update request for Group : ${scimGroup?.id} via SCIM: ${scimGroup?.properties}")
+        log.trace("Update request for Group : ${id} via SCIM: ${scimGroup?.properties}")
         def result
-        int status = HttpStatus.OK.value()
+        HttpStatus status = HttpStatus.OK
         try {
+            if (scimGroup.id != id) {
+                throw new InvalidRequestDataException("There is mismatch between group json payload id and reference id passed in URI")
+            }
             result = scimGroupService.update(scimGroup)
         } catch (InvalidRequestDataException irde) {
-            result = new ErrorResponse(detail: irde.message, status: HttpStatus.BAD_REQUEST.value() as String)
-            status = HttpStatus.BAD_REQUEST.value()
+            status = HttpStatus.BAD_REQUEST
+            result = new ErrorResponse(detail: irde.message, status: status.value().toString())
         } catch (ResourceNotFoundException rnfe) {
             log.error(rnfe.message)
-            result = new ErrorResponse(detail: rnfe.message, status: HttpStatus.CONFLICT.value() as String)
-            status = HttpStatus.CONFLICT.value()
+            status = HttpStatus.NOT_FOUND
+            result = new ErrorResponse(detail: rnfe.message, status: status.value().toString())
         } catch (Exception ex) {
             log.error("Unknown exception due to for group name update ${scimGroup.displayName}", ex)
-            result = new ErrorResponse(detail: ex.message, status: HttpStatus.INTERNAL_SERVER_ERROR.value() as String)
-            status = HttpStatus.INTERNAL_SERVER_ERROR.value()
+            status = HttpStatus.INTERNAL_SERVER_ERROR
+            result = new ErrorResponse(detail: ex.message, status: status.value().toString())
         }
         renderScim(result, status)
     }
@@ -73,59 +75,64 @@ class ScimGroupController {
         patchRequest.id = id
         bindData(patchRequest, request.JSON as Map)
         log.trace("Patch request for Group : ${id} via SCIM: ${patchRequest?.properties}")
-        def result
-        int status = HttpStatus.NO_CONTENT.value()
+        def result = null
+        HttpStatus status = HttpStatus.NO_CONTENT
         try {
             result = scimGroupService.patch(patchRequest)
         } catch (InvalidRequestDataException irde) {
-            result = new ErrorResponse(detail: irde.message, status: HttpStatus.BAD_REQUEST.value() as String)
-            status = HttpStatus.BAD_REQUEST.value()
+            status = HttpStatus.BAD_REQUEST
+            result = new ErrorResponse(detail: irde.message, status: status.value().toString())
         } catch (ResourceNotFoundException rnfe) {
             log.error(rnfe.message)
-            result = new ErrorResponse(detail: rnfe.message, status: HttpStatus.CONFLICT.value() as String)
-            status = HttpStatus.CONFLICT.value()
+            status = HttpStatus.NOT_FOUND
+            result = new ErrorResponse(detail: rnfe.message, status: status.value().toString())
         } catch (Exception ex) {
             log.error("Unknown exception due to for group patch update ${patchRequest.id}", ex)
-            result = new ErrorResponse(detail: ex.message, status: HttpStatus.INTERNAL_SERVER_ERROR.value() as String)
-            status = HttpStatus.INTERNAL_SERVER_ERROR.value()
+            status = HttpStatus.INTERNAL_SERVER_ERROR
+            result = new ErrorResponse(detail: ex.message, status: status.value().toString())
         }
         renderScim(result, status)
     }
 
     def delete(String id) {
         log.trace("Delete request for Group : ${id} via SCIM")
+        def result = null
+        HttpStatus status = HttpStatus.NO_CONTENT
         try {
             scimGroupService.delete(id)
-            response.status = HttpStatus.NO_CONTENT.value()
+            response.status = status.value()
         } catch (ResourceNotFoundException rnfe) {
             log.error(rnfe.message)
-            def result = new ErrorResponse(detail: rnfe.message, status: HttpStatus.NOT_FOUND.value() as String)
-            renderScim(result, HttpStatus.NOT_FOUND.value())
+            status = HttpStatus.NOT_FOUND
+            result = new ErrorResponse(detail: rnfe.message, status: status.value().toString())
         } catch (Exception ex) {
             log.error("Unknown exception due to for group delete ${id}", ex)
-            def result = new ErrorResponse(detail: ex.message, status: HttpStatus.INTERNAL_SERVER_ERROR.value() as String)
-            renderScim(result, HttpStatus.INTERNAL_SERVER_ERROR.value())
+            status = HttpStatus.INTERNAL_SERVER_ERROR
+            result = new ErrorResponse(detail: ex.message, status: status.value().toString())
         }
+        renderScim(result, status)
     }
 
     def show(String id, String excludedAttributes, String attributes) {
         log.trace("Show request for Group : ${id} via SCIM : ${excludedAttributes} and attributes : ${attributes}")
         def result
-        int status = HttpStatus.OK.value()
+        HttpStatus status = HttpStatus.OK
         try {
             result = scimGroupService.getGroup(id, excludedAttributes, attributes)
         } catch (ResourceNotFoundException rnfe) {
             log.error(rnfe.message)
-            result = new ErrorResponse(detail: rnfe.message, status: HttpStatus.NOT_FOUND.value() as String)
-            status = HttpStatus.NOT_FOUND.value()
+            status = HttpStatus.NOT_FOUND
+            result = new ErrorResponse(detail: rnfe.message, status: status.value().toString())
         }
         renderScim(result, status)
     }
 
-    private void renderScim(def body, int status = HttpStatus.OK.value()) {
-        response.status = status
-        render text: (body as JSON).toString(),
-                contentType: "application/scim+json"
+    private void renderScim(def body, HttpStatus status = HttpStatus.OK) {
+        response.status = status.value()
+        if(body != null) {
+            render text: (body as JSON).toString(),
+                    contentType: "application/scim+json"
+        }
     }
 
     private ScimGroup fromJson(Map json) {

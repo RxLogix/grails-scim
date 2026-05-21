@@ -28,43 +28,45 @@ class ScimUserController {
         ScimUser scimUser = fromJson(request.JSON as Map)
         log.trace("Save request for User via SCIM : ${scimUser?.properties}")
         def result
-        int status = HttpStatus.CREATED.value()
+        HttpStatus status = HttpStatus.CREATED
         try {
             result = scimUserService.save(scimUser)
         } catch (InvalidRequestDataException irde) {
-            result = new ErrorResponse(detail: irde.message, status: HttpStatus.BAD_REQUEST.value() as String)
-            status = HttpStatus.BAD_REQUEST.value()
+            status = HttpStatus.BAD_REQUEST
+            result = new ErrorResponse(detail: irde.message, status: status.value().toString())
         } catch (ResourceConflictException re) {
             log.error(re.message)
-            result = new ErrorResponse(detail: re.message, status: HttpStatus.CONFLICT.value() as String)
-            status = HttpStatus.CONFLICT.value()
+            status = HttpStatus.CONFLICT
+            result = new ErrorResponse(detail: re.message, status: status.value().toString())
         } catch (Exception ex) {
             log.error("Unknown exception due to for username save ${scimUser.userName}", ex)
-            result = new ErrorResponse(detail: ex.message, status: HttpStatus.INTERNAL_SERVER_ERROR.value() as String)
-            status = HttpStatus.INTERNAL_SERVER_ERROR.value()
+            status = HttpStatus.INTERNAL_SERVER_ERROR
+            result = new ErrorResponse(detail: ex.message, status: status.value().toString())
         }
         renderScim(result, status)
     }
 
     def update(String id) {
         ScimUser scimUser = fromJson(request.JSON as Map)
-        scimUser.id = id
-        log.trace("Update request for User via SCIM ${scimUser?.properties}")
+        log.trace("Update request for User id ${id} via SCIM ${scimUser?.properties}")
         def result
-        int status = HttpStatus.OK.value()
+        HttpStatus status = HttpStatus.OK
         try {
+            if (scimUser.id != id) {
+                throw new InvalidRequestDataException("There is mismatch between user json payload id and reference id passed in URI")
+            }
             result = scimUserService.update(scimUser)
         } catch (InvalidRequestDataException irde) {
-            result = new ErrorResponse(detail: irde.message, status: HttpStatus.BAD_REQUEST.value() as String)
-            status = HttpStatus.BAD_REQUEST.value()
+            status = HttpStatus.BAD_REQUEST
+            result = new ErrorResponse(detail: irde.message, status: status.value().toString())
         } catch (ResourceNotFoundException rnfe) {
             log.error(rnfe.message)
-            result = new ErrorResponse(detail: rnfe.message, status: HttpStatus.CONFLICT.value() as String)
-            status = HttpStatus.CONFLICT.value()
+            status = HttpStatus.NOT_FOUND
+            result = new ErrorResponse(detail: rnfe.message, status: status.value().toString())
         } catch (Exception ex) {
             log.error("Unknown exception due to for username update ${scimUser.userName}", ex)
-            result = new ErrorResponse(detail: ex.message, status: HttpStatus.INTERNAL_SERVER_ERROR.value() as String)
-            status = HttpStatus.INTERNAL_SERVER_ERROR.value()
+            status = HttpStatus.INTERNAL_SERVER_ERROR
+            result = new ErrorResponse(detail: ex.message, status: status.value().toString())
         }
         renderScim(result, status)
     }
@@ -75,62 +77,67 @@ class ScimUserController {
         bindData(patchRequest, request.JSON as Map)
         log.trace("Patch request for User : ${id} via SCIM ${patchRequest?.properties}")
         def result
-        int status = HttpStatus.NO_CONTENT.value()
+        HttpStatus status = HttpStatus.NO_CONTENT
         try {
             result = scimUserService.patch(patchRequest)
         } catch (InvalidRequestDataException irde) {
-            result = new ErrorResponse(detail: irde.message, status: HttpStatus.BAD_REQUEST.value() as String)
-            status = HttpStatus.BAD_REQUEST.value()
+            status = HttpStatus.BAD_REQUEST
+            result = new ErrorResponse(detail: irde.message, status: status.value().toString())
         } catch (ResourceNotFoundException rnfe) {
             log.error(rnfe.message)
-            result = new ErrorResponse(detail: rnfe.message, status: HttpStatus.CONFLICT.value() as String)
-            status = HttpStatus.CONFLICT.value()
+            status = HttpStatus.NOT_FOUND
+            result = new ErrorResponse(detail: rnfe.message, status: status.value().toString())
         } catch (Exception ex) {
             log.error("Unknown exception due to for username patch ${patchRequest.id}", ex)
-            result = new ErrorResponse(detail: ex.message, status: HttpStatus.INTERNAL_SERVER_ERROR.value() as String)
-            status = HttpStatus.INTERNAL_SERVER_ERROR.value()
+            status = HttpStatus.INTERNAL_SERVER_ERROR
+            result = new ErrorResponse(detail: ex.message, status: status.value().toString())
         }
         renderScim(result, status)
     }
 
     def delete(String id) {
         log.trace("Delete request for User : ${id} via SCIM")
+        def result = null
+        HttpStatus status = HttpStatus.NO_CONTENT
         try {
             scimUserService.delete(id)
-            response.status = HttpStatus.NO_CONTENT.value()
+            response.status = status.value()
         } catch (ResourceNotFoundException rnfe) {
             log.error(rnfe.message)
-            def result = new ErrorResponse(detail: rnfe.message, status: HttpStatus.NOT_FOUND.value() as String)
-            renderScim(result, HttpStatus.NOT_FOUND.value())
+            status = HttpStatus.NOT_FOUND
+            result = new ErrorResponse(detail: rnfe.message, status: status.value().toString())
         } catch (UnsupportedActionException uae) {
             log.error(uae.message)
-            def result = new ErrorResponse(detail: uae.message, status: HttpStatus.NOT_IMPLEMENTED.value() as String)
-            renderScim(result, HttpStatus.NOT_IMPLEMENTED.value())
+            status = HttpStatus.NOT_IMPLEMENTED
+            result = new ErrorResponse(detail: uae.message, status: status.value().toString())
         } catch (Exception ex) {
             log.error("Unknown exception due to for user delete ${id}", ex)
-            def result = new ErrorResponse(detail: ex.message, status: HttpStatus.INTERNAL_SERVER_ERROR.value() as String)
-            renderScim(result, HttpStatus.INTERNAL_SERVER_ERROR.value())
+            status = HttpStatus.INTERNAL_SERVER_ERROR
+            result = new ErrorResponse(detail: ex.message, status: status.value().toString())
         }
+        renderScim(result, status)
     }
 
     def show(String id, String excludedAttributes, String attributes) {
         log.trace("Show request for User : ${id} via SCIM : ${excludedAttributes} and attributes : ${attributes}")
         def result
-        int status = HttpStatus.OK.value()
+        HttpStatus status = HttpStatus.OK
         try {
             result = scimUserService.getUser(id, excludedAttributes, attributes)
         } catch (ResourceNotFoundException rnfe) {
             log.error(rnfe.message)
-            result = new ErrorResponse(detail: rnfe.message, status: HttpStatus.NOT_FOUND.value() as String)
-            status = HttpStatus.NOT_FOUND.value()
+            status = HttpStatus.NOT_FOUND
+            result = new ErrorResponse(detail: rnfe.message, status: status.value().toString())
         }
         renderScim(result, status)
     }
 
-    private void renderScim(def body, int status = HttpStatus.OK.value()) {
-        response.status = status
-        render text: (body as JSON).toString(),
-                contentType: "application/scim+json"
+    private void renderScim(def body, HttpStatus status = HttpStatus.OK) {
+        response.status = status.value()
+        if (body != null) {
+            render text: (body as JSON).toString(),
+                    contentType: "application/scim+json"
+        }
     }
 
     private ScimUser fromJson(Map json) {
@@ -139,7 +146,7 @@ class ScimUserController {
         def ext = json[ScimUser.EXT_URN]
         if (ext instanceof Map) {
             user.customExtension = new CustomUserExtension(
-                    tenants: ext.tenants.split(grailsApplication.config.getProperty('grails.scim.separator', ","))
+                    tenants: ext.tenants.toString().split(grailsApplication.config.getProperty('grails.scim.separator', ",").toString())
             )
         }
         return user
