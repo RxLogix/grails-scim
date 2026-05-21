@@ -52,7 +52,7 @@ class ScimControllerInterceptor {
         response.status = HttpStatus.UNAUTHORIZED.value()
         render([
                 schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
-                status : "401",
+                status : HttpStatus.UNAUTHORIZED.value().toString(),
                 detail : message
         ] as JSON)
     }
