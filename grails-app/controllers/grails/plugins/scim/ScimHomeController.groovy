@@ -3,6 +3,7 @@ package grails.plugins.scim
 import grails.converters.JSON
 import grails.plugins.scim.resources.ScimUser
 import groovy.util.logging.Slf4j
+import org.springframework.http.HttpStatus
 
 @Slf4j
 class ScimHomeController {
@@ -46,7 +47,7 @@ class ScimHomeController {
         if (id) {
             def schema = doc.Resources.find { it.id == id }
             if (!schema) {
-                response.status = 404
+                response.status = HttpStatus.NOT_FOUND.value()
                 return
             }
             schema.meta.location = "${baseUrl}/scim/Schemas/${id}"
@@ -140,7 +141,7 @@ class ScimHomeController {
     // /docs/scim-auth
     // --------------------
     def scimAuthDocs() {
-        def baseUrl = baseUrl()
+        def baseUrl = getBaseUrl()
 
         // JSON support
         if (request.getHeader('Accept')?.contains('application/json')) {
@@ -156,7 +157,7 @@ class ScimHomeController {
         // Load HTML from classpath
         def stream = getClass().getResourceAsStream('/docs/scim-auth.html')
         if (!stream) {
-            response.status = 404
+            response.status = HttpStatus.NOT_FOUND.value()
             render "SCIM auth documentation not found"
             return
         }
