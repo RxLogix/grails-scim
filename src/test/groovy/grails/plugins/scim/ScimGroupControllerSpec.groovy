@@ -2,17 +2,17 @@ package grails.plugins.scim
 
 import grails.plugins.scim.exceptions.*
 import grails.plugins.scim.messages.ListResponse
-import grails.plugins.scim.resources.ScimUser
+import grails.plugins.scim.resources.ScimGroup
 import grails.testing.web.controllers.ControllerUnitTest
 import groovy.json.JsonSlurper
 import spock.lang.Specification
 
-class ScimUserControllerSpec extends Specification implements ControllerUnitTest<ScimUserController> {
+class ScimGroupControllerSpec extends Specification implements ControllerUnitTest<ScimGroupController> {
 
-    def scimUserService = Mock(ScimUserService)
+    def scimGroupService = Mock(ScimGroupService)
 
     void setup() {
-        controller.scimUserService = scimUserService
+        controller.scimGroupService = scimGroupService
     }
 
     // ------------------------
@@ -21,10 +21,10 @@ class ScimUserControllerSpec extends Specification implements ControllerUnitTest
     void "index should return list response"() {
         given:
         def responseObj = new ListResponse(totalResults: 1)
-        scimUserService.list(_, _, _, _, _) >> responseObj
+        scimGroupService.list(_, _, _, _, _) >> responseObj
 
         when:
-        controller.index("userName eq 'john'", 10, 1, null, null)
+        controller.index("displayName eq 'admins'", 10, 1, null, null)
 
         then:
         response.status == 200
@@ -37,9 +37,9 @@ class ScimUserControllerSpec extends Specification implements ControllerUnitTest
     void "save should return 201 on success"() {
         given:
         request.contentType = 'application/json'
-        request.json = new JsonSlurper().parseText('{"userName": "john"}')
-        def user = new ScimUser(userName: "john")
-        scimUserService.save(_) >> user
+        request.json = new JsonSlurper().parseText('{"displayName": "admins"}')
+        def group = new ScimGroup(displayName: "admins")
+        scimGroupService.save(_) >> group
 
         when:
         controller.save()
@@ -51,8 +51,8 @@ class ScimUserControllerSpec extends Specification implements ControllerUnitTest
     void "save should return 400 on InvalidRequestDataException"() {
         given:
         request.contentType = 'application/json'
-        request.json = new JsonSlurper().parseText('{"userName": "john"}')
-        scimUserService.save(_) >> { throw new InvalidRequestDataException("bad data") }
+        request.json = new JsonSlurper().parseText('{"displayName": "admins"}')
+        scimGroupService.save(_) >> { throw new InvalidRequestDataException("bad data") }
 
         when:
         controller.save()
@@ -64,8 +64,8 @@ class ScimUserControllerSpec extends Specification implements ControllerUnitTest
     void "save should return 409 on ResourceConflictException"() {
         given:
         request.contentType = 'application/json'
-        request.json = new JsonSlurper().parseText('{"userName": "john"}')
-        scimUserService.save(_) >> { throw new ResourceConflictException("conflict") }
+        request.json = new JsonSlurper().parseText('{"displayName": "admins"}')
+        scimGroupService.save(_) >> { throw new ResourceConflictException("conflict") }
 
         when:
         controller.save()
@@ -77,8 +77,8 @@ class ScimUserControllerSpec extends Specification implements ControllerUnitTest
     void "save should return 500 on unknown exception"() {
         given:
         request.contentType = 'application/json'
-        request.json = new JsonSlurper().parseText('{"userName": "john"}')
-        scimUserService.save(_) >> { throw new RuntimeException("boom") }
+        request.json = new JsonSlurper().parseText('{"displayName": "admins"}')
+        scimGroupService.save(_) >> { throw new RuntimeException("boom") }
 
         when:
         controller.save()
@@ -93,9 +93,9 @@ class ScimUserControllerSpec extends Specification implements ControllerUnitTest
     void "update should return 200 on success"() {
         given:
         request.contentType = 'application/json'
-        request.json = new JsonSlurper().parseText('{"userName": "john"}')
-        def user = new ScimUser(userName: "john")
-        scimUserService.update(_) >> user
+        request.json = new JsonSlurper().parseText('{"displayName": "admins"}')
+        def group = new ScimGroup(displayName: "admins")
+        scimGroupService.update(_) >> group
 
         when:
         controller.update("123")
@@ -107,8 +107,8 @@ class ScimUserControllerSpec extends Specification implements ControllerUnitTest
     void "update should return 400 on invalid request"() {
         given:
         request.contentType = 'application/json'
-        request.json = new JsonSlurper().parseText('{"userName": "john"}')
-        scimUserService.update(_) >> { throw new InvalidRequestDataException("bad") }
+        request.json = new JsonSlurper().parseText('{"displayName": "admins"}')
+        scimGroupService.update(_) >> { throw new InvalidRequestDataException("bad") }
 
         when:
         controller.update("123")
@@ -117,11 +117,11 @@ class ScimUserControllerSpec extends Specification implements ControllerUnitTest
         response.status == 400
     }
 
-    void "update should return 409 when user not found"() {
+    void "update should return 409 when group not found"() {
         given:
         request.contentType = 'application/json'
-        request.json = new JsonSlurper().parseText('{"userName": "john"}')
-        scimUserService.update(_) >> { throw new ResourceNotFoundException("missing") }
+        request.json = new JsonSlurper().parseText('{"displayName": "admins"}')
+        scimGroupService.update(_) >> { throw new ResourceNotFoundException("missing") }
 
         when:
         controller.update("123")
@@ -133,8 +133,8 @@ class ScimUserControllerSpec extends Specification implements ControllerUnitTest
     void "update should return 500 on unknown exception"() {
         given:
         request.contentType = 'application/json'
-        request.json = new JsonSlurper().parseText('{"userName": "john"}')
-        scimUserService.update(_) >> { throw new RuntimeException("boom") }
+        request.json = new JsonSlurper().parseText('{"displayName": "admins"}')
+        scimGroupService.update(_) >> { throw new RuntimeException("boom") }
 
         when:
         controller.update("123")
@@ -150,7 +150,7 @@ class ScimUserControllerSpec extends Specification implements ControllerUnitTest
         given:
         request.contentType = 'application/json'
         request.json = [:]
-        scimUserService.patch(_) >> [:]
+        scimGroupService.patch(_) >> [:]
 
         when:
         controller.patch("123")
@@ -163,7 +163,7 @@ class ScimUserControllerSpec extends Specification implements ControllerUnitTest
         given:
         request.contentType = 'application/json'
         request.json = [:]
-        scimUserService.patch(_) >> { throw new InvalidRequestDataException("bad") }
+        scimGroupService.patch(_) >> { throw new InvalidRequestDataException("bad") }
 
         when:
         controller.patch("123")
@@ -172,11 +172,11 @@ class ScimUserControllerSpec extends Specification implements ControllerUnitTest
         response.status == 400
     }
 
-    void "patch should return 409 when user not found"() {
+    void "patch should return 409 when group not found"() {
         given:
         request.contentType = 'application/json'
         request.json = [:]
-        scimUserService.patch(_) >> { throw new ResourceNotFoundException("missing") }
+        scimGroupService.patch(_) >> { throw new ResourceNotFoundException("missing") }
 
         when:
         controller.patch("123")
@@ -189,7 +189,7 @@ class ScimUserControllerSpec extends Specification implements ControllerUnitTest
         given:
         request.contentType = 'application/json'
         request.json = [:]
-        scimUserService.patch(_) >> { throw new RuntimeException("boom") }
+        scimGroupService.patch(_) >> { throw new RuntimeException("boom") }
 
         when:
         controller.patch("123")
@@ -203,7 +203,7 @@ class ScimUserControllerSpec extends Specification implements ControllerUnitTest
     // ------------------------
     void "delete should return 204 on success"() {
         given:
-        scimUserService.delete("123") >> null
+        scimGroupService.delete("123") >> null
 
         when:
         controller.delete("123")
@@ -212,9 +212,9 @@ class ScimUserControllerSpec extends Specification implements ControllerUnitTest
         response.status == 204
     }
 
-    void "delete should return 404 when user not found"() {
+    void "delete should return 404 when group not found"() {
         given:
-        scimUserService.delete("123") >> { throw new ResourceNotFoundException("missing") }
+        scimGroupService.delete("123") >> { throw new ResourceNotFoundException("missing") }
 
         when:
         controller.delete("123")
@@ -223,20 +223,9 @@ class ScimUserControllerSpec extends Specification implements ControllerUnitTest
         response.status == 404
     }
 
-    void "delete should return 501 when unsupported"() {
-        given:
-        scimUserService.delete("123") >> { throw new UnsupportedActionException("unsupported") }
-
-        when:
-        controller.delete("123")
-
-        then:
-        response.status == 501
-    }
-
     void "delete should return 500 on unknown exception"() {
         given:
-        scimUserService.delete("123") >> { throw new RuntimeException("boom") }
+        scimGroupService.delete("123") >> { throw new RuntimeException("boom") }
 
         when:
         controller.delete("123")
@@ -250,7 +239,7 @@ class ScimUserControllerSpec extends Specification implements ControllerUnitTest
     // ------------------------
     void "show should return 200 on success"() {
         given:
-        scimUserService.getUser(_, _, _) >> new ScimUser(userName: "john")
+        scimGroupService.getGroup(_, _, _) >> new ScimGroup(displayName: "admins")
 
         when:
         controller.show("123", null, null)
@@ -259,9 +248,9 @@ class ScimUserControllerSpec extends Specification implements ControllerUnitTest
         response.status == 200
     }
 
-    void "show should return 404 when user missing"() {
+    void "show should return 404 when group missing"() {
         given:
-        scimUserService.getUser(_, _, _) >> { throw new ResourceNotFoundException("missing") }
+        scimGroupService.getGroup(_, _, _) >> { throw new ResourceNotFoundException("missing") }
 
         when:
         controller.show("123", null, null)
