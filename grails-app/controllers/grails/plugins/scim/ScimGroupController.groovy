@@ -100,7 +100,6 @@ class ScimGroupController {
         HttpStatus status = HttpStatus.NO_CONTENT
         try {
             scimGroupService.delete(id)
-            response.status = status.value()
         } catch (ResourceNotFoundException rnfe) {
             log.error(rnfe.message)
             status = HttpStatus.NOT_FOUND

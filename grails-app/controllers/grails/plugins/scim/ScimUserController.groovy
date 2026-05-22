@@ -101,7 +101,6 @@ class ScimUserController {
         HttpStatus status = HttpStatus.NO_CONTENT
         try {
             scimUserService.delete(id)
-            response.status = status.value()
         } catch (ResourceNotFoundException rnfe) {
             log.error(rnfe.message)
             status = HttpStatus.NOT_FOUND
