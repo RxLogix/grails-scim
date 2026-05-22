@@ -32,6 +32,46 @@ class ScimUserControllerSpec extends Specification implements ControllerUnitTest
     }
 
     // ------------------------
+    // CUSTOM EXTENSION (fromJson)
+    // ------------------------
+    void "save should parse comma-separated tenants from custom extension"() {
+        given:
+        def payload = """{
+            "userName": "john",
+            "urn:ietf:params:scim:schemas:extension:custom:2.0:User": {
+                "tenants": "tenant-001,tenant-002,DEFAULT"
+            }
+        }"""
+        request.contentType = 'application/json'
+        request.json = new JsonSlurper().parseText(payload)
+        ScimUser captured
+        scimUserService.save(_) >> { ScimUser u -> captured = u; u }
+
+        when:
+        controller.save()
+
+        then:
+        response.status == 201
+        captured.customExtension != null
+        captured.customExtension.tenants == ["tenant-001", "tenant-002", "DEFAULT"] as Set
+    }
+
+    void "save should not set customExtension when extension block is absent"() {
+        given:
+        request.contentType = 'application/json'
+        request.json = new JsonSlurper().parseText('{"userName": "john"}')
+        ScimUser captured
+        scimUserService.save(_) >> { ScimUser u -> captured = u; u }
+
+        when:
+        controller.save()
+
+        then:
+        response.status == 201
+        captured.customExtension == null
+    }
+
+    // ------------------------
     // SAVE
     // ------------------------
     void "save should return 201 on success"() {

@@ -34,6 +34,46 @@ class ScimGroupControllerSpec extends Specification implements ControllerUnitTes
     }
 
     // ------------------------
+    // CUSTOM EXTENSION (fromJson)
+    // ------------------------
+    void "save should parse tenant string from custom extension"() {
+        given:
+        def payload = """{
+            "displayName": "Finance Team",
+            "urn:ietf:params:scim:schemas:extension:custom:2.0:Group": {
+                "tenant": "tenant-001"
+            }
+        }"""
+        request.contentType = 'application/json'
+        request.json = new JsonSlurper().parseText(payload)
+        ScimGroup captured
+        scimGroupService.save(_) >> { ScimGroup g -> captured = g; g }
+
+        when:
+        controller.save()
+
+        then:
+        response.status == 201
+        captured.customExtension != null
+        captured.customExtension.tenant == "tenant-001"
+    }
+
+    void "save should not set customExtension when extension block is absent"() {
+        given:
+        request.contentType = 'application/json'
+        request.json = new JsonSlurper().parseText('{"displayName": "Finance Team"}')
+        ScimGroup captured
+        scimGroupService.save(_) >> { ScimGroup g -> captured = g; g }
+
+        when:
+        controller.save()
+
+        then:
+        response.status == 201
+        captured.customExtension == null
+    }
+
+    // ------------------------
     // SAVE
     // ------------------------
     void "save should return 201 on success"() {
