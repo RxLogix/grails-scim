@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SCIM Authentication</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+        }
+
+        h1 {
+            color: #2c3e50;
+        }
+
+        pre {
+            background: #f4f4f4;
+            padding: 10px;
+        }
+    </style>
+</head>
+<body>
+
+<h1>SCIM Authentication</h1>
+
+<p>This SCIM service uses <strong>OAuth 2.0 Bearer Token</strong> authentication.</p>
+
+<h2>Header Format</h2>
+<pre>Authorization: Bearer &lt;access_token&gt;</pre>
+
+<h2>Required Scope</h2>
+<pre>scim.provisioning</pre>
+
+<h2>Example Request</h2>
+<pre>
+curl -X GET {{BASE_URL}}/scim/Users \
+  -H "Authorization: Bearer eyJhbGciOi..." \
+  -H "Content-Type: application/scim+json"
+</pre>
+
+<h2>Token Flow</h2>
+<p>Use OAuth 2.0 <strong>Client Credentials Flow</strong> to obtain access tokens.</p>
+
+<h2>Errors</h2>
+<ul>
+    <li><strong>401</strong> - Missing or invalid token</li>
+    <li><strong>403</strong> - Insufficient scope</li>
+</ul>
+
+</body>
+</html>

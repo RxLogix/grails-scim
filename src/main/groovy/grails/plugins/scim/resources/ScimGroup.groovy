@@ -12,6 +12,22 @@ class ScimGroup implements Validateable {
     String type = 'Direct'
     List<ScimUser> members = []
     Meta meta
-    Set<String> schemas = ['urn:ietf:params:scim:schemas:core:2.0:Group'] as Set
+    // Extension
+    CustomGroupExtension customExtension
+
+    Set<String> schemas = [
+            'urn:ietf:params:scim:schemas:core:2.0:Group'
+    ] as Set
+
+    static final String EXT_URN =
+            'urn:ietf:params:scim:schemas:extension:custom:2.0:Group'
+
+    Set<String> getSchemas() {
+        if (customExtension?.tenant) {
+            return schemas + [EXT_URN]
+        }
+        return schemas
+    }
+
 
 }

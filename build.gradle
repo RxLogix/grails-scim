@@ -44,6 +44,11 @@ dependencies {
     compileOnly 'ch.qos.logback:logback-classic:1.2.13'
     compileOnly 'ch.qos.logback:logback-core:1.2.13'
 
+    testImplementation "io.micronaut:micronaut-inject-groovy"
+    testImplementation "org.spockframework:spock-core"
+    testImplementation "org.grails:grails-testing-support"
+    testImplementation "org.grails:grails-web-testing-support"
+
 }
 
 java {
