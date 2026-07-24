@@ -4,7 +4,7 @@ import grails.converters.JSON
 import grails.core.GrailsApplication
 import groovy.util.logging.Slf4j
 import org.springframework.http.HttpStatus
-import javax.servlet.http.HttpServletRequest
+import jakarta.servlet.http.HttpServletRequest
 
 @Slf4j
 class ScimControllerInterceptor {
