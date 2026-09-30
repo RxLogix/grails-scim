@@ -5,6 +5,8 @@ import grails.plugins.scim.resources.ScimGroup
 import grails.plugins.scim.resources.ScimUser
 import grails.util.Holders
 
+import java.lang.reflect.Modifier
+
 class BootStrap {
 
     static final String USER_EXT_URN =
@@ -23,9 +25,13 @@ class BootStrap {
 
     static scimResponseMarshaller = { Object object ->
 
+        // Only marshal real instance state: skip synthetic/static fields and the
+        // fields woven in by Groovy traits such as grails.validation.Validateable
+        // (grails_validation_Validateable__constraintsMapInternal etc.), which hold
+        // ConstrainedDelegate instances the JSON converter cannot serialize.
         List<String> fields = object.getClass()
                 ?.getDeclaredFields()
-                ?.grep { !it.synthetic }
+                ?.grep { !it.synthetic && !Modifier.isStatic(it.modifiers) && !it.name.contains('__') }
                 ?.collect { it.name } ?: []
 
         fields = fields - ['customExtension']
