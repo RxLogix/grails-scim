@@ -1,12 +1,21 @@
-plugins {
-    id "groovy"
-    id "idea"
-    id "eclipse"
-    id "org.grails.grails-plugin"
-    id "com.gorylenko.gradle-git-properties"
-    id "java-library"
-    id "maven-publish"
+buildscript {
+    repositories {
+        mavenLocal()
+        mavenCentral()
+        maven { url = 'https://repo.grails.org/grails/restricted' }
+    }
+    dependencies {
+        classpath platform("org.apache.grails:grails-bom:$grailsVersion")
+        classpath "org.apache.grails:grails-gradle-plugins"    // version from BOM
+        classpath "com.gorylenko.gradle-git-properties:gradle-git-properties:4.0.1"
+    }
 }
+
+apply plugin: "groovy"
+apply plugin: "idea"
+apply plugin: "org.apache.grails.gradle.grails-plugin"
+apply plugin: "maven-publish"
+apply plugin: "com.gorylenko.gradle-git-properties"
 
 group "org.grails.plugins"
 
@@ -14,11 +23,12 @@ repositories {
     mavenLocal()
     mavenCentral()
     maven { url "https://repo.grails.org/grails/core" }
+    maven { url "https://repo.grails.org/grails/restricted" }
 }
 
 configurations {
     all {
-        resolutionStrategy.eachDependency { DependencyResolveDetails details->
+        resolutionStrategy.eachDependency { DependencyResolveDetails details ->
             if (details.requested.group == 'org.seleniumhq.selenium') {
                 details.useVersion('4.19.1')
             }
@@ -31,54 +41,57 @@ configurations {
 }
 
 dependencies {
-    compileOnly 'org.springframework.boot:spring-boot-starter-logging'
-    compileOnly "org.springframework.boot:spring-boot-starter-actuator"
-    compileOnly "org.springframework.boot:spring-boot-autoconfigure"
-    compileOnly "org.springframework.boot:spring-boot-starter-tomcat"
-
-    compileOnly "org.grails:grails-web-boot"
-    compileOnly "org.grails:grails-dependencies"
-    compileOnly 'javax.servlet:javax.servlet-api'
-
-    console "org.grails:grails-console"
-    compileOnly 'ch.qos.logback:logback-classic:1.2.13'
-    compileOnly 'ch.qos.logback:logback-core:1.2.13'
-
-    testImplementation "io.micronaut:micronaut-inject-groovy"
+    console "org.apache.grails:grails-console"
+    developmentOnly "org.springframework.boot:spring-boot-devtools"
+    implementation platform("org.apache.grails:grails-bom:$grailsVersion")
+    implementation "org.springframework.boot:spring-boot-starter-logging"
+    implementation "org.springframework.boot:spring-boot-starter-validation"
+    implementation "org.springframework.boot:spring-boot-autoconfigure"
+    implementation "org.springframework.boot:spring-boot-starter"
+    implementation "org.apache.grails:grails-core"
+    implementation "org.apache.grails:grails-controllers"
+    implementation "org.apache.grails:grails-interceptors"
+    implementation "org.apache.grails:grails-rest-transforms"
+    implementation "org.apache.grails.web:grails-web-mvc"
+    implementation "org.apache.grails:grails-gsp"
+    implementation "org.apache.grails.views:grails-web-gsp"
+    implementation "org.apache.grails.views:grails-web-gsp-taglib"
+    profile "org.apache.grails.profiles:plugin"
+    testImplementation "org.apache.grails.testing:grails-testing-support-core"
+    testImplementation "org.apache.grails:grails-testing-support-web"
     testImplementation "org.spockframework:spock-core"
-    testImplementation "org.grails:grails-testing-support"
-    testImplementation "org.grails:grails-web-testing-support"
 
+    // Spock requires Byte Buddy to mock non-interface classes.
+    // Added explicitly because it is no longer available transitively after the Grails 7 upgrade.
+    testImplementation "net.bytebuddy:byte-buddy"
+    testRuntimeOnly "net.bytebuddy:byte-buddy-agent"
 }
 
-java {
-    sourceCompatibility = JavaVersion.toVersion("11")
-    targetCompatibility = JavaVersion.toVersion("11")
+compileJava.options.release = 17
+
+// https://github.com/apache/grails-core/issues/15321
+tasks.withType(GroovyCompile).configureEach {
+    groovyOptions.optimizationOptions.indy = false
 }
 
-tasks.withType(GroovyCompile) {
-    configure(groovyOptions) {
-        forkOptions.jvmArgs = ['-Xmx1024m']
-    }
-}
-
-tasks.withType(Test) {
+tasks.withType(Test).configureEach {
     useJUnitPlatform()
 }
 
 task sourceJar(type: Jar) {
-    classifier = 'sources'
+    dependsOn generateGitProperties
+    archiveClassifier = 'sources'
     from sourceSets.main.allSource
 }
 
 task packageJavadoc(type: Jar) {
     from javadoc
-    classifier = 'javadoc'
+    archiveClassifier = 'javadoc'
 }
 
 task packageGroovydoc(type: Jar) {
     from groovydoc
-    classifier = 'groovydoc'
+    archiveClassifier = 'groovydoc'
 }
 
 gitProperties {
