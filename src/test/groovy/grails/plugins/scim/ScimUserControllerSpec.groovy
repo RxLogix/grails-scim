@@ -3,6 +3,8 @@ package grails.plugins.scim
 import grails.plugins.scim.exceptions.*
 import grails.plugins.scim.messages.ListResponse
 import grails.plugins.scim.resources.ScimUser
+import grails.plugins.scim.resources.operations.PatchRequest
+import grails.plugins.scim.security.ScimTenantContext
 import grails.testing.web.controllers.ControllerUnitTest
 import groovy.json.JsonSlurper
 import spock.lang.Specification
@@ -13,6 +15,86 @@ class ScimUserControllerSpec extends Specification implements ControllerUnitTest
 
     void setup() {
         controller.scimUserService = scimUserService
+        ScimTenantContext.clear()
+    }
+
+    void cleanup() {
+        ScimTenantContext.clear()
+    }
+
+    // ------------------------
+    // TENANT TOKEN FLOW
+    // ------------------------
+    void "save ignores payload tenants and uses context tenant when tenant context is set"() {
+        given:
+        ScimTenantContext.set('tenant-ctx')
+        request.contentType = 'application/json'
+        request.json = new JsonSlurper().parseText('''{
+            "userName": "john",
+            "urn:ietf:params:scim:schemas:extension:custom:2.0:User": { "tenants": "tenant-001,tenant-002" }
+        }''')
+        ScimUser captured
+        scimUserService.save(_) >> { ScimUser u -> captured = u; u }
+
+        when:
+        controller.save()
+
+        then:
+        response.status == 201
+        captured.customExtension.tenants == ['tenant-ctx'] as Set
+    }
+
+    void "save populates tenant from context when extension block is absent"() {
+        given:
+        ScimTenantContext.set('tenant-ctx')
+        request.contentType = 'application/json'
+        request.json = new JsonSlurper().parseText('{"userName": "john"}')
+        ScimUser captured
+        scimUserService.save(_) >> { ScimUser u -> captured = u; u }
+
+        when:
+        controller.save()
+
+        then:
+        captured.customExtension.tenants == ['tenant-ctx'] as Set
+    }
+
+    void "patch drops operations targeting the tenant extension when tenant context is set"() {
+        given:
+        ScimTenantContext.set('tenant-ctx')
+        request.contentType = 'application/json'
+        request.json = new JsonSlurper().parseText('''{
+            "Operations": [
+                { "op": "replace", "path": "active", "value": false },
+                { "op": "add", "path": "urn:ietf:params:scim:schemas:extension:custom:2.0:User.tenants", "value": "evil" }
+            ]
+        }''')
+        PatchRequest captured
+        scimUserService.patch(_) >> { PatchRequest p -> captured = p; new ScimUser(id: 'u1') }
+
+        when:
+        controller.patch('u1')
+
+        then:
+        captured.Operations*.path == ['active']
+    }
+
+    void "patch keeps tenant operations in legacy flow"() {
+        given:
+        request.contentType = 'application/json'
+        request.json = new JsonSlurper().parseText('''{
+            "Operations": [
+                { "op": "add", "path": "urn:ietf:params:scim:schemas:extension:custom:2.0:User.tenants", "value": "tenant-004" }
+            ]
+        }''')
+        PatchRequest captured
+        scimUserService.patch(_) >> { PatchRequest p -> captured = p; new ScimUser(id: 'u1') }
+
+        when:
+        controller.patch('u1')
+
+        then:
+        captured.Operations.size() == 1
     }
 
     // ------------------------

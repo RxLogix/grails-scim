@@ -10,6 +10,7 @@ import grails.plugins.scim.messages.ListResponse
 import grails.plugins.scim.resources.CustomUserExtension
 import grails.plugins.scim.resources.operations.PatchRequest
 import grails.plugins.scim.resources.ScimUser
+import grails.plugins.scim.security.ScimTenantContext
 import groovy.util.logging.Slf4j
 import org.springframework.http.HttpStatus
 
@@ -75,6 +76,7 @@ class ScimUserController {
         PatchRequest patchRequest = new PatchRequest()
         patchRequest.id = id
         bindData(patchRequest, request.JSON as Map)
+        dropTenantOperations(patchRequest)
         log.trace("Patch request for User : ${id} via SCIM ${patchRequest?.properties}")
         def result
         HttpStatus status = HttpStatus.NO_CONTENT
@@ -142,13 +144,30 @@ class ScimUserController {
     private ScimUser fromJson(Map json) {
         ScimUser user = new ScimUser()
         bindData(user, json)
+        String contextTenant = ScimTenantContext.currentTenantId()
+        if (contextTenant) {
+            // Tenant-token flow: the authenticated tenant is authoritative; payload tenants are ignored.
+            user.customExtension = new CustomUserExtension(tenants: [contextTenant] as Set)
+            return user
+        }
+        // Legacy flow: honour whatever the payload carries, nothing is injected.
         def ext = json[ScimUser.EXT_URN]
-        if (ext instanceof Map) {
+        if (ext instanceof Map && ext.tenants != null) {
             user.customExtension = new CustomUserExtension(
                     tenants: ext.tenants.toString().split(grailsApplication.config.getProperty('grails.scim.separator', ",").toString())
             )
         }
         return user
+    }
+
+    /** In the tenant-token flow PATCH operations may not alter the tenant extension. */
+    private static void dropTenantOperations(PatchRequest patchRequest) {
+        if (!ScimTenantContext.isSet() || !patchRequest.Operations) {
+            return
+        }
+        patchRequest.Operations = patchRequest.Operations.findAll { op ->
+            !(op.path?.toString()?.startsWith(ScimUser.EXT_URN))
+        }
     }
 
 }

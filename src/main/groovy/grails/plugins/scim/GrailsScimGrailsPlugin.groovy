@@ -3,6 +3,7 @@ package grails.plugins.scim
 import grails.plugins.*
 import grails.plugins.scim.binding.JsonScimApiDataBindingSourceCreator
 import grails.plugins.scim.binding.DataBindingSourceRegistryUpdater
+import grails.plugins.scim.security.ConfigScimTenantKeyResolver
 import groovy.util.logging.Slf4j
 
 @Slf4j
@@ -35,6 +36,11 @@ class GrailsScimGrailsPlugin extends Plugin {
                 grailsApplication = ref('grailsApplication')
             }
             dataBindingSourceRegistryUpdater(DataBindingSourceRegistryUpdater)
+            // Default tenant-token key resolver backed by <tenantId>.grails.scim.api_token.
+            // Host applications may override this bean (same name) with a DB/vault backed implementation.
+            scimTenantKeyResolver(ConfigScimTenantKeyResolver) {
+                grailsApplication = ref('grailsApplication')
+            }
         }
     }
 
