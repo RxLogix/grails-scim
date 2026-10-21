@@ -27,9 +27,12 @@ class GrailsScimGrailsPlugin extends Plugin {
 
     Closure doWithSpring() {
         { ->
-            if (!grailsApplication.config.getProperty("grails.scim.enabled",Boolean.class)) {
-                return
-            }
+            // PVADMIN-50831: these beans used to be registered only when the global grails.scim.enabled
+            // was true. With per-tenant enablement the org-level flag can be false while a tenant is
+            // enabled, and request bodies would then fail to bind. The host's scimTenantConfigProvider is
+            // not yet defined at this point, so its presence cannot be checked here either. The beans
+            // only add the application/scim+json body parser; access is still gated per request by
+            // ScimControllerInterceptor.
             log.info "Loading scim plugin...."
             jsonScimApiDataBindingSourceCreator(JsonScimApiDataBindingSourceCreator) {
                 grailsApplication = ref('grailsApplication')

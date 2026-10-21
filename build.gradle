@@ -56,6 +56,14 @@ dependencies {
     implementation "org.apache.grails:grails-gsp"
     implementation "org.apache.grails.views:grails-web-gsp"
     implementation "org.apache.grails.views:grails-web-gsp-taglib"
+
+    // Per-tenant SCIM JWT verification (PVADMIN-50831). Same jjwt line New Admin uses to mint the
+    // tokens (JwtTokenUtility.generateScimToken). Not managed by grails-bom, so the version is
+    // pinned in gradle.properties; jjwt-jackson takes its Jackson version from the BOM.
+    implementation "io.jsonwebtoken:jjwt-api:$jjwtVersion"
+    runtimeOnly "io.jsonwebtoken:jjwt-impl:$jjwtVersion"
+    runtimeOnly "io.jsonwebtoken:jjwt-jackson:$jjwtVersion"
+
     profile "org.apache.grails.profiles:plugin"
     testImplementation "org.apache.grails.testing:grails-testing-support-core"
     testImplementation "org.apache.grails:grails-testing-support-web"
