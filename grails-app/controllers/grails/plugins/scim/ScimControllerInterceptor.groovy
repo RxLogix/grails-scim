@@ -3,7 +3,9 @@ package grails.plugins.scim
 import grails.converters.JSON
 import grails.core.GrailsApplication
 import grails.plugins.scim.security.InvalidScimTokenException
+import grails.plugins.scim.security.ScimJwtParser
 import grails.plugins.scim.security.ScimTenantContext
+import grails.plugins.scim.security.ScimTenantJwtSecretResolver
 import grails.plugins.scim.security.ScimTenantKeyResolver
 import grails.plugins.scim.security.ScimTenantTokenParser
 import groovy.util.logging.Slf4j
@@ -16,25 +18,33 @@ import java.security.MessageDigest
 /**
  * Authenticates SCIM requests.
  *
- * Two mutually exclusive flows:
+ * Three mutually exclusive flows, tried in this order:
  * <ul>
  *   <li><b>Legacy static token</b> ({@code grails.scim.legacyStaticToken.enabled}, default true):
  *       the bearer value matches {@code grails.scim.api_token}. No tenant context is set and
  *       payload tenant fields are honoured as sent.</li>
+ *   <li><b>Tenant JWT</b>: an HS256 JWS whose header carries {@code tid} and {@code kid}. The secret
+ *       comes from {@link ScimTenantJwtSecretResolver}; signature, {@code exp}, {@code nbf} and optional
+ *       issuer are validated by {@link ScimJwtParser}.</li>
  *   <li><b>Tenant token</b>: {@code base64url(tenantId).base64url(secret)}. The SHA-256 of the
- *       presented secret is compared with the hash supplied by {@link ScimTenantKeyResolver}.
- *       On success {@link ScimTenantContext} carries the tenant for the rest of the request.</li>
+ *       presented secret is compared with the hash supplied by {@link ScimTenantKeyResolver}.</li>
  * </ul>
+ * For both tenant flows {@link ScimTenantContext} carries the tenant for the rest of the request.
  */
 @Slf4j
 class ScimControllerInterceptor {
 
     static final String LEGACY_ENABLED_KEY = 'grails.scim.legacyStaticToken.enabled'
+    static final String JWT_CLOCK_SKEW_KEY = 'grails.scim.jwt.clockSkewSeconds'
+    static final long DEFAULT_JWT_CLOCK_SKEW = 60L
 
     GrailsApplication grailsApplication
 
     /** Injected by bean name; hosts override by declaring their own {@code scimTenantKeyResolver} bean. */
     ScimTenantKeyResolver scimTenantKeyResolver
+
+    /** Injected by bean name; hosts override by declaring their own {@code scimTenantJwtSecretResolver} bean. */
+    ScimTenantJwtSecretResolver scimTenantJwtSecretResolver
 
     ScimControllerInterceptor() {
         match controller: ~/(scimHome|scimUser|scimGroup|)/
@@ -59,7 +69,7 @@ class ScimControllerInterceptor {
             return true
         }
 
-        String tenantId = authenticateTenantToken(bearer)
+        String tenantId = ScimJwtParser.looksLikeJwt(bearer) ? authenticateJwt(bearer) : authenticateTenantToken(bearer)
         if (tenantId) {
             ScimTenantContext.set(tenantId)
             log.trace("Valid scim tenant token for tenant {} by Ip Address: {}", tenantId, getClientIP(request))
@@ -102,6 +112,29 @@ class ScimControllerInterceptor {
             return false
         }
         MessageDigest.isEqual(bearer.getBytes(StandardCharsets.UTF_8), apiToken.getBytes(StandardCharsets.UTF_8))
+    }
+
+    /** @return the tenant id when the bearer is a valid tenant JWT, otherwise null. */
+    private String authenticateJwt(String bearer) {
+        if (scimTenantJwtSecretResolver == null) {
+            return null
+        }
+        try {
+            ScimJwtParser.Header header = ScimJwtParser.readHeader(bearer)
+            byte[] secret = scimTenantJwtSecretResolver.resolveSecret(header.tenantId, header.kid)
+            if (secret == null) {
+                return null
+            }
+            String issuer = scimTenantJwtSecretResolver.expectedIssuer(header.tenantId)
+            return ScimJwtParser.verify(bearer, secret, issuer, jwtClockSkew()).tenantId
+        } catch (InvalidScimTokenException ignored) {
+            return null
+        }
+    }
+
+    private long jwtClockSkew() {
+        Long configured = grailsApplication.config.getProperty(JWT_CLOCK_SKEW_KEY, Long.class)
+        configured == null || configured < 0 ? DEFAULT_JWT_CLOCK_SKEW : configured
     }
 
     /** @return the tenant id when the bearer is a valid tenant token, otherwise null. */

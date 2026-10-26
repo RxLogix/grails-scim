@@ -219,6 +219,46 @@ Unit specs under `src/test/groovy/grails/plugins/scim/security/`, following the 
 - `ScimControllerInterceptorSpec`: extend the existing spec with tenant-token success, wrong secret, unknown tenant, legacy fallback on and off, context populated and cleared for tenant tokens, context absent for legacy tokens, and 401 body shape unchanged across all failure cases.
 - `ScimUserControllerSpec` / `ScimGroupControllerSpec`: tenant-token flow, payload tenants are replaced by the context tenant, absent extension is populated from the context, and PATCH operations targeting the tenant attribute are dropped; legacy flow, payload tenants pass through untouched and a missing extension is accepted.
 
+## 12. Addendum (M4): per-tenant signed JWT
+
+Some clients hold a per-tenant HMAC secret and want to present a standard signed JWT instead of the two-part tenant token. M4 adds this as a third, mutually exclusive flow with the same downstream behaviour.
+
+### 12.1 Token shape
+
+```
+base64url({"alg":"HS256","typ":"JWT","kid":"<keyId>","tid":"<tenantId>"})
+.base64url({"iss":"<idp>","sub":"scim","iat":...,"exp":...,"jti":"..."})
+.base64url(HMAC-SHA256(header + "." + payload, tenantSecret))
+```
+
+`tid` and `kid` sit in the header so the secret can be located before verification. The header is part of the signed input, so neither value can be altered without invalidating the signature; they are read before verification and trusted only after it.
+
+### 12.2 Verification
+
+1. Detection: exactly three non-empty dot-separated parts routes to the JWT flow; two parts routes to the tenant token flow. Legacy static token is still checked first.
+2. `ScimJwtParser.readHeader`: `alg` must be exactly `HS256`; `tid` and `kid` must match the id pattern. `none` and asymmetric algorithms are rejected before any lookup.
+3. `ScimTenantJwtSecretResolver.resolveSecret(tid, kid)`; null rejects.
+4. Recompute HMAC-SHA256 over the first two parts and compare with `MessageDigest.isEqual`. The payload is not decoded before this step.
+5. Claims: `exp` mandatory and not past `now + skew`; `nbf` if present not after `now + skew`; payload `tid` if present must equal header `tid`; `iss` must equal `expectedIssuer(tid)` when that returns non-null.
+6. `ScimTenantContext.set(tid)`. Controllers and repositories behave exactly as in the tenant token flow.
+
+### 12.3 Key resolution and configuration
+
+| Key | Purpose |
+|---|---|
+| `<tenantId>.grails.scim.jwt.<kid>` | Base64 raw HMAC secret, at least 32 bytes. Several `kid` entries per tenant allow rotation. `issuer` is reserved and cannot be a kid. |
+| `<tenantId>.grails.scim.jwt.issuer` | Optional. When set, `iss` must match. |
+| `grails.scim.jwt.clockSkewSeconds` | Default 60. |
+
+Default bean `scimTenantJwtSecretResolver` is `ConfigScimTenantJwtSecretResolver`; hosts override it by bean name. A short or malformed secret is logged once and treated as absent.
+
+### 12.4 Security notes
+
+- The secret must be stored raw because HMAC needs the key bytes. This differs from the tenant token, which stores only a hash. Secrets must come from environment or vault, never committed config.
+- Algorithm is pinned server-side; the header `alg` is checked for equality, never used to select an algorithm.
+- `exp` is mandatory, which is the main benefit of JWT over the unexpiring tenant token.
+- No new dependencies: `javax.crypto.Mac`, `java.util.Base64` and `JsonSlurper` only.
+
 ## 11. Decisions
 
 The following questions were raised during review and resolved on 2026-10-16.

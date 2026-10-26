@@ -3,6 +3,7 @@ package grails.plugins.scim
 import grails.plugins.*
 import grails.plugins.scim.binding.JsonScimApiDataBindingSourceCreator
 import grails.plugins.scim.binding.DataBindingSourceRegistryUpdater
+import grails.plugins.scim.security.ConfigScimTenantJwtSecretResolver
 import grails.plugins.scim.security.ConfigScimTenantKeyResolver
 import groovy.util.logging.Slf4j
 
@@ -39,6 +40,10 @@ class GrailsScimGrailsPlugin extends Plugin {
             // Default tenant-token key resolver backed by <tenantId>.grails.scim.api_token.
             // Host applications may override this bean (same name) with a DB/vault backed implementation.
             scimTenantKeyResolver(ConfigScimTenantKeyResolver) {
+                grailsApplication = ref('grailsApplication')
+            }
+            // Default JWT secret resolver backed by <tenantId>.grails.scim.jwt.<kid>.
+            scimTenantJwtSecretResolver(ConfigScimTenantJwtSecretResolver) {
                 grailsApplication = ref('grailsApplication')
             }
         }

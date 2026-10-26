@@ -16,7 +16,7 @@ The plugin has no persistence of its own. The host application implements two `S
 
 Grails 7.x:
 ```groovy
-implementation 'org.grails.plugins:grails-scim:7.0.0-M3'
+implementation 'org.grails.plugins:grails-scim:7.0.0-M4'
 ```
 
 Grails 3.x:
@@ -52,20 +52,35 @@ grails.scim.legacyStaticToken.enabled = true     // optional; set false to accep
 grails.scim.separator = ','                      // optional; delimiter for the tenants extension value (default ",")
 grails.scim.mime.types = ['application/scim+json', 'application/scim+json;charset=utf-8'] // optional override
 
-// Multi-tenant: one entry per tenant, value is the SHA-256 (hex or base64) of that tenant's secret
+// Multi-tenant (tenant token): one entry per tenant, value is the SHA-256 (hex or base64) of that tenant's secret
 'tenant-001.grails.scim.api_token' = '<sha256 of tenant-001 secret>'
 'tenant-002.grails.scim.api_token' = '<sha256 of tenant-002 secret>'
+
+// Multi-tenant (JWT): one raw HMAC secret per tenant and key id (base64, at least 32 bytes), optional issuer
+'tenant-001.grails.scim.jwt.kid-2026a' = '<base64 raw secret>'
+'tenant-001.grails.scim.jwt.issuer'    = 'https://idp.client-one.example'   // optional, enforced when set
+grails.scim.jwt.clockSkewSeconds = 60                                       // optional, default 60
 ```
 
 Store secrets and hashes in environment variables or external config, never in source control.
 
 ### Authentication
 
-Every request must carry `Authorization: Bearer <token>`. Request bodies must use `Content-Type: application/scim+json`. Two token styles are accepted:
+Every request must carry `Authorization: Bearer <token>`. Request bodies must use `Content-Type: application/scim+json`. Three token styles are accepted, tried in this order:
 
 **Legacy static token.** The bearer value equals `grails.scim.api_token`. No tenant is derived from the token; the `tenants` / `tenant` custom extension in the payload is passed to your repository exactly as sent. This is the default and matches earlier plugin versions. Disable it with `grails.scim.legacyStaticToken.enabled = false`.
 
-**Tenant token.** The bearer value is `base64url(tenantId).base64url(secret)`. The plugin hashes the presented secret with SHA-256 and compares it, in constant time, with the hash configured under `<tenantId>.grails.scim.api_token`. On success the tenant id is available to your repository via `ScimTenantContext.currentTenantId()`, any tenant values in the payload are ignored and replaced by the authenticated tenant, and PATCH operations targeting the tenant extension are dropped. A missing or mismatched token returns a SCIM-formatted `401 Unauthorized`; unknown and wrong-secret cases produce an identical response.
+**Tenant JWT.** The bearer value is a standard HS256 JWS whose header carries `tid` (tenant id) and `kid` (key id):
+
+```json
+{ "alg": "HS256", "typ": "JWT", "kid": "kid-2026a", "tid": "tenant-001" }
+```
+
+The plugin reads `tid` and `kid` from the header, resolves the raw secret from `<tenantId>.grails.scim.jwt.<kid>`, verifies the signature, then validates `exp` (mandatory), `nbf`, `tid` in the payload if present, and `iss` when `<tenantId>.grails.scim.jwt.issuer` is configured. Only `HS256` is accepted; `none` and asymmetric algorithms are rejected before any lookup. The header is covered by the signature, so `tid` is safe to trust once verification succeeds. Multiple `kid` entries per tenant allow rotation. Because the secret must be stored raw, supply it from environment variables or a vault. To resolve secrets elsewhere, declare a bean named `scimTenantJwtSecretResolver` implementing `grails.plugins.scim.security.ScimTenantJwtSecretResolver`.
+
+**Tenant token.** The bearer value is `base64url(tenantId).base64url(secret)`. The plugin hashes the presented secret with SHA-256 and compares it, in constant time, with the hash configured under `<tenantId>.grails.scim.api_token`. On success the tenant id is available to your repository via `ScimTenantContext.currentTenantId()`.
+
+For both tenant flows, any tenant values in the payload are ignored and replaced by the authenticated tenant, and PATCH operations targeting the tenant extension are dropped. A missing or mismatched token returns a SCIM-formatted `401 Unauthorized`; unknown and wrong-secret cases produce an identical response.
 
 To onboard a tenant, generate a 32-byte random secret, store its SHA-256 under the tenant key, and hand the client the token. `ScimTenantTokenParser.build(tenantId, secretBytes)` and `ScimTenantTokenParser.sha256Hex(secretBytes)` are provided for administrator tooling.
 

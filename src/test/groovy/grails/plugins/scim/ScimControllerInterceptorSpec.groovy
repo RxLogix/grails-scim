@@ -2,7 +2,9 @@ package grails.plugins.scim
 
 import grails.config.Config
 import grails.core.GrailsApplication
+import grails.plugins.scim.security.ScimJwtParser
 import grails.plugins.scim.security.ScimTenantContext
+import grails.plugins.scim.security.ScimTenantJwtSecretResolver
 import grails.plugins.scim.security.ScimTenantKeyResolver
 import grails.plugins.scim.security.ScimTenantTokenParser
 import grails.testing.web.interceptor.InterceptorUnitTest
@@ -14,6 +16,9 @@ class ScimControllerInterceptorSpec extends Specification implements Interceptor
     Config mockConfig = Mock(Config)
     GrailsApplication mockApplication = Mock(GrailsApplication)
     ScimTenantKeyResolver resolver = Mock(ScimTenantKeyResolver)
+    ScimTenantJwtSecretResolver jwtResolver = Mock(ScimTenantJwtSecretResolver)
+
+    static final byte[] JWT_SECRET = 'jwt-secret-for-tenant-001-0123456789abcdef'.bytes
 
     static final byte[] TENANT_SECRET = 'tenant-secret-bytes-0123456789ab'.bytes
     static final String TENANT_TOKEN = ScimTenantTokenParser.build('tenant-001', TENANT_SECRET)
@@ -22,7 +27,20 @@ class ScimControllerInterceptorSpec extends Specification implements Interceptor
         mockApplication.getConfig() >> mockConfig
         interceptor.grailsApplication = mockApplication
         interceptor.scimTenantKeyResolver = resolver
+        interceptor.scimTenantJwtSecretResolver = jwtResolver
         ScimTenantContext.clear()
+    }
+
+    private static String jwt(Map headerOverrides = [:], Map payloadOverrides = [:], byte[] secret = JWT_SECRET) {
+        long now = System.currentTimeMillis().intdiv(1000)
+        Map header = [alg: 'HS256', typ: 'JWT', kid: 'kid-1', tid: 'tenant-001'] + headerOverrides
+        Map payload = [iss: 'https://idp.example', sub: 'scim', iat: now, exp: now + 300] + payloadOverrides
+        ScimJwtParser.sign(header, payload, secret)
+    }
+
+    private void jwtConfigured(String tenantId = 'tenant-001', String kid = 'kid-1', byte[] secret = JWT_SECRET, String issuer = null) {
+        jwtResolver.resolveSecret(tenantId, kid) >> secret
+        jwtResolver.expectedIssuer(tenantId) >> issuer
     }
 
     void cleanup() {
@@ -182,6 +200,135 @@ class ScimControllerInterceptorSpec extends Specification implements Interceptor
         expect:
         !interceptor.before()
         response.status == 401
+    }
+
+    // ------------------------
+    // TENANT JWT
+    // ------------------------
+    void "valid tenant JWT sets tenant context"() {
+        given:
+        scimEnabled(true, 'secret')
+        jwtConfigured()
+        request.addHeader('Authorization', "Bearer ${jwt()}")
+
+        when:
+        boolean allowed = interceptor.before()
+
+        then:
+        allowed
+        ScimTenantContext.currentTenantId() == 'tenant-001'
+        0 * resolver.resolveSecretHash(_)
+    }
+
+    void "valid tenant JWT works when legacy flag is disabled and issuer is enforced"() {
+        given:
+        scimEnabled(true, 'secret', false)
+        jwtConfigured('tenant-001', 'kid-1', JWT_SECRET, 'https://idp.example')
+        request.addHeader('Authorization', "Bearer ${jwt()}")
+
+        expect:
+        interceptor.before()
+        ScimTenantContext.currentTenantId() == 'tenant-001'
+    }
+
+    void "tenant JWT signed with wrong secret is rejected with 401"() {
+        given:
+        scimEnabled(true, 'secret')
+        jwtConfigured()
+        request.addHeader('Authorization', "Bearer ${jwt([:], [:], 'wrong-secret-wrong-secret-wrong-secret'.bytes)}")
+
+        expect:
+        !interceptor.before()
+        response.status == 401
+        !ScimTenantContext.isSet()
+    }
+
+    void "tenant JWT with unknown kid is rejected with same 401 body"() {
+        given:
+        scimEnabled(true, 'secret')
+        jwtResolver.resolveSecret(_, _) >> null
+        request.addHeader('Authorization', "Bearer ${jwt(kid: 'kid-unknown')}")
+
+        when:
+        boolean allowed = interceptor.before()
+
+        then:
+        !allowed
+        response.status == 401
+        new JsonSlurper().parseText(response.contentAsString).detail == 'UNAUTHORIZED access on scim endpoint'
+    }
+
+    void "expired tenant JWT is rejected"() {
+        given:
+        scimEnabled(true, 'secret')
+        jwtConfigured()
+        long past = System.currentTimeMillis().intdiv(1000) - 3600
+        request.addHeader('Authorization', "Bearer ${jwt([:], [exp: past])}")
+
+        expect:
+        !interceptor.before()
+        response.status == 401
+    }
+
+    void "tenant JWT with issuer mismatch is rejected"() {
+        given:
+        scimEnabled(true, 'secret')
+        jwtConfigured('tenant-001', 'kid-1', JWT_SECRET, 'https://expected')
+        request.addHeader('Authorization', "Bearer ${jwt()}")
+
+        expect:
+        !interceptor.before()
+        response.status == 401
+    }
+
+    void "tenant JWT with alg none never reaches the resolver"() {
+        given:
+        scimEnabled(true, 'secret')
+        request.addHeader('Authorization', "Bearer ${jwt(alg: 'none')}")
+
+        when:
+        boolean allowed = interceptor.before()
+
+        then:
+        !allowed
+        0 * jwtResolver.resolveSecret(_, _)
+    }
+
+    void "tenant JWT is rejected when no jwt resolver bean is present"() {
+        given:
+        scimEnabled(true, 'secret')
+        interceptor.scimTenantJwtSecretResolver = null
+        request.addHeader('Authorization', "Bearer ${jwt()}")
+
+        expect:
+        !interceptor.before()
+        response.status == 401
+    }
+
+    void "three-part bearer is routed to JWT flow and never to tenant token flow"() {
+        given:
+        scimEnabled(true, 'secret')
+        jwtResolver.resolveSecret(_, _) >> null
+        request.addHeader('Authorization', "Bearer ${jwt()}")
+
+        when:
+        interceptor.before()
+
+        then:
+        0 * resolver.resolveSecretHash(_)
+    }
+
+    void "configured clock skew is honoured"() {
+        given:
+        scimEnabled(true, 'secret')
+        mockConfig.getProperty(ScimControllerInterceptor.JWT_CLOCK_SKEW_KEY, _) >> 600L
+        jwtConfigured()
+        long slightlyPast = System.currentTimeMillis().intdiv(1000) - 300
+        request.addHeader('Authorization', "Bearer ${jwt([:], [exp: slightlyPast])}")
+
+        expect:
+        interceptor.before()
+        ScimTenantContext.currentTenantId() == 'tenant-001'
     }
 
     void "after and afterView clear the tenant context"() {
