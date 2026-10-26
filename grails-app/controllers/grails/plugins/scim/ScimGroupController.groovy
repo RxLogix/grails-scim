@@ -9,6 +9,7 @@ import grails.plugins.scim.messages.ListResponse
 import grails.plugins.scim.resources.CustomGroupExtension
 import grails.plugins.scim.resources.operations.PatchRequest
 import grails.plugins.scim.resources.ScimGroup
+import grails.plugins.scim.security.ScimTenantContext
 import groovy.util.logging.Slf4j
 import org.springframework.http.HttpStatus
 
@@ -74,6 +75,7 @@ class ScimGroupController {
         PatchRequest patchRequest = new PatchRequest()
         patchRequest.id = id
         bindData(patchRequest, request.JSON as Map)
+        dropTenantOperations(patchRequest)
         log.trace("Patch request for Group : ${id} via SCIM: ${patchRequest?.properties}")
         def result = null
         HttpStatus status = HttpStatus.NO_CONTENT
@@ -137,6 +139,13 @@ class ScimGroupController {
     private ScimGroup fromJson(Map json) {
         ScimGroup group = new ScimGroup()
         bindData(group, json)
+        String contextTenant = ScimTenantContext.currentTenantId()
+        if (contextTenant) {
+            // Tenant-token flow: the authenticated tenant is authoritative; payload tenant is ignored.
+            group.customExtension = new CustomGroupExtension(tenant: contextTenant)
+            return group
+        }
+        // Legacy flow: honour whatever the payload carries, nothing is injected.
         def ext = json[ScimGroup.EXT_URN]
         if (ext instanceof Map) {
             group.customExtension = new CustomGroupExtension(
@@ -144,6 +153,16 @@ class ScimGroupController {
             )
         }
         return group
+    }
+
+    /** In the tenant-token flow PATCH operations may not alter the tenant extension. */
+    private static void dropTenantOperations(PatchRequest patchRequest) {
+        if (!ScimTenantContext.isSet() || !patchRequest.Operations) {
+            return
+        }
+        patchRequest.Operations = patchRequest.Operations.findAll { op ->
+            !(op.path?.toString()?.startsWith(ScimGroup.EXT_URN))
+        }
     }
 
 }

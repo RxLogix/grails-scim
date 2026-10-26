@@ -16,7 +16,7 @@ The plugin has no persistence of its own. The host application implements two `S
 
 Grails 7.x:
 ```groovy
-implementation 'org.grails.plugins:grails-scim:7.0.0-M2'
+implementation 'org.grails.plugins:grails-scim:7.0.0-M3'
 ```
 
 Grails 3.x:
@@ -46,17 +46,32 @@ resources.groovy
 
 application.groovy
 ```groovy
-grails.scim.enabled = true                  // master switch; endpoints return 403 when false
-grails.scim.api_token = '<shared secret>'   // static bearer token expected in the Authorization header
-grails.scim.separator = ','                 // optional; delimiter for the tenants extension value (default ",")
+grails.scim.enabled = true                       // master switch; endpoints return 403 when false
+grails.scim.api_token = '<shared secret>'        // legacy static bearer token (single tenant)
+grails.scim.legacyStaticToken.enabled = true     // optional; set false to accept tenant tokens only
+grails.scim.separator = ','                      // optional; delimiter for the tenants extension value (default ",")
 grails.scim.mime.types = ['application/scim+json', 'application/scim+json;charset=utf-8'] // optional override
+
+// Multi-tenant: one entry per tenant, value is the SHA-256 (hex or base64) of that tenant's secret
+'tenant-001.grails.scim.api_token' = '<sha256 of tenant-001 secret>'
+'tenant-002.grails.scim.api_token' = '<sha256 of tenant-002 secret>'
 ```
 
-Store the API token in an environment variable or external config, never in source control.
+Store secrets and hashes in environment variables or external config, never in source control.
 
 ### Authentication
 
-Every request must carry `Authorization: Bearer <api_token>`. A missing or mismatched token returns a SCIM-formatted `401 Unauthorized`. Request bodies must use `Content-Type: application/scim+json`.
+Every request must carry `Authorization: Bearer <token>`. Request bodies must use `Content-Type: application/scim+json`. Two token styles are accepted:
+
+**Legacy static token.** The bearer value equals `grails.scim.api_token`. No tenant is derived from the token; the `tenants` / `tenant` custom extension in the payload is passed to your repository exactly as sent. This is the default and matches earlier plugin versions. Disable it with `grails.scim.legacyStaticToken.enabled = false`.
+
+**Tenant token.** The bearer value is `base64url(tenantId).base64url(secret)`. The plugin hashes the presented secret with SHA-256 and compares it, in constant time, with the hash configured under `<tenantId>.grails.scim.api_token`. On success the tenant id is available to your repository via `ScimTenantContext.currentTenantId()`, any tenant values in the payload are ignored and replaced by the authenticated tenant, and PATCH operations targeting the tenant extension are dropped. A missing or mismatched token returns a SCIM-formatted `401 Unauthorized`; unknown and wrong-secret cases produce an identical response.
+
+To onboard a tenant, generate a 32-byte random secret, store its SHA-256 under the tenant key, and hand the client the token. `ScimTenantTokenParser.build(tenantId, secretBytes)` and `ScimTenantTokenParser.sha256Hex(secretBytes)` are provided for administrator tooling.
+
+To resolve hashes from a database or vault instead of config, declare your own bean named `scimTenantKeyResolver` implementing `grails.plugins.scim.security.ScimTenantKeyResolver`. Return `null` for unknown tenants rather than throwing.
+
+Repositories must scope every read and write to `ScimTenantContext.currentTenantId()` when it is non-null, and must throw `ResourceNotFoundException` for ids belonging to another tenant. When it is null the request came through the legacy flow and existing behaviour applies. See [docs/MULTI_TENANT_TOKEN_DESIGN.md](docs/MULTI_TENANT_TOKEN_DESIGN.md) for the full design.
 
 ### URL mappings
 

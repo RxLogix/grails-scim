@@ -3,7 +3,7 @@
 Base URL: `{baseUrl}/scim/v2`
 
 All requests that include a body must set `Content-Type: application/scim+json`.  
-All requests must include an `Authorization: Bearer {token}` header.  
+All requests must include an `Authorization: Bearer {token}` header. The token is either the deployment's static secret or a tenant-scoped token (`base64url(tenantId).base64url(secret)`) issued by the service administrator. With a tenant-scoped token the server derives the tenant from the token and ignores any `tenants` / `tenant` values in the request body.  
 All responses are returned as `application/scim+json`.
 
 ---
