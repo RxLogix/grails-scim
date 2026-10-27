@@ -5,8 +5,6 @@ import grails.core.GrailsApplication
 import grails.plugins.scim.security.ScimJwtParser
 import grails.plugins.scim.security.ScimTenantContext
 import grails.plugins.scim.security.ScimTenantJwtSecretResolver
-import grails.plugins.scim.security.ScimTenantKeyResolver
-import grails.plugins.scim.security.ScimTenantTokenParser
 import grails.testing.web.interceptor.InterceptorUnitTest
 import groovy.json.JsonSlurper
 import spock.lang.Specification
@@ -15,18 +13,13 @@ class ScimControllerInterceptorSpec extends Specification implements Interceptor
 
     Config mockConfig = Mock(Config)
     GrailsApplication mockApplication = Mock(GrailsApplication)
-    ScimTenantKeyResolver resolver = Mock(ScimTenantKeyResolver)
     ScimTenantJwtSecretResolver jwtResolver = Mock(ScimTenantJwtSecretResolver)
 
     static final byte[] JWT_SECRET = 'jwt-secret-for-tenant-001-0123456789abcdef'.bytes
 
-    static final byte[] TENANT_SECRET = 'tenant-secret-bytes-0123456789ab'.bytes
-    static final String TENANT_TOKEN = ScimTenantTokenParser.build('tenant-001', TENANT_SECRET)
-
     void setup() {
         mockApplication.getConfig() >> mockConfig
         interceptor.grailsApplication = mockApplication
-        interceptor.scimTenantKeyResolver = resolver
         interceptor.scimTenantJwtSecretResolver = jwtResolver
         ScimTenantContext.clear()
     }
@@ -38,31 +31,65 @@ class ScimControllerInterceptorSpec extends Specification implements Interceptor
         ScimJwtParser.sign(header, payload, secret)
     }
 
-    private void jwtConfigured(String tenantId = 'tenant-001', String kid = 'kid-1', byte[] secret = JWT_SECRET, String issuer = null) {
+    private void jwtConfigured(String tenantId = 'tenant-001', String kid = 'kid-1', byte[] secret = JWT_SECRET,
+                               String issuer = null, boolean tenantEnabled = true) {
         jwtResolver.resolveSecret(tenantId, kid) >> secret
         jwtResolver.expectedIssuer(tenantId) >> issuer
+        // Per-tenant enable flag read after the signature verifies.
+        mockConfig.getProperty(tenantId + '.grails.scim.enabled', _) >> tenantEnabled
     }
 
     void cleanup() {
         ScimTenantContext.clear()
     }
 
-    private void scimEnabled(boolean enabled, String token = 'secret', Boolean legacyEnabled = null) {
-        mockConfig.getProperty('grails.scim.enabled', _) >> enabled
+    private void scimConfigured(String token = 'secret') {
         mockConfig.getProperty('grails.scim.api_token', _) >> token
-        mockConfig.getProperty(ScimControllerInterceptor.LEGACY_ENABLED_KEY, _) >> legacyEnabled
     }
 
-    private void tenantConfigured(String tenantId = 'tenant-001', byte[] secret = TENANT_SECRET) {
-        resolver.resolveSecretHash(tenantId) >> ScimTenantTokenParser.sha256(secret)
+    /** Config the legacy (default-tenant) flow needs: SCIM enabled + the default tenant id. */
+    private void legacyConfigured(long defaultTenantId = 1L, boolean enabled = true) {
+        mockConfig.getProperty('grails.scim.enabled', _) >> enabled
+        mockConfig.getProperty('DEFAULT_TENANT_ID', _) >> defaultTenantId
     }
 
     // ------------------------
-    // SCIM DISABLED
+    // LEGACY STATIC TOKEN
     // ------------------------
-    void "before returns false and 403 when scim is not enabled"() {
+    void "legacy token binds the default tenant when scim is enabled"() {
         given:
-        scimEnabled(false)
+        scimConfigured()
+        legacyConfigured(1L, true)
+        request.addHeader('Authorization', 'Bearer secret')
+
+        when:
+        boolean allowed = interceptor.before()
+
+        then:
+        allowed
+        ScimTenantContext.currentTenantId() == '1'
+    }
+
+    void "legacy token binds the default tenant and never consults the jwt resolver"() {
+        given:
+        scimConfigured()
+        legacyConfigured(1L, true)
+        request.addHeader('Authorization', 'Bearer secret')
+
+        when:
+        boolean allowed = interceptor.before()
+
+        then:
+        allowed
+        ScimTenantContext.currentTenantId() == '1'
+        0 * jwtResolver.resolveSecret(_, _)
+    }
+
+    void "legacy token is rejected with 403 when scim is disabled for the default tenant"() {
+        given:
+        scimConfigured()
+        legacyConfigured(1L, false)
+        request.addHeader('Authorization', 'Bearer secret')
 
         when:
         boolean allowed = interceptor.before()
@@ -70,136 +97,7 @@ class ScimControllerInterceptorSpec extends Specification implements Interceptor
         then:
         !allowed
         response.status == 403
-        response.contentAsString == 'SCIM is not enabled'
-    }
-
-    // ------------------------
-    // VALID TOKEN
-    // ------------------------
-    void "before returns true when scim is enabled and bearer token is valid"() {
-        given:
-        scimEnabled(true, 'secret')
-        request.addHeader('Authorization', 'Bearer secret')
-
-        when:
-        boolean allowed = interceptor.before()
-
-        then:
-        allowed
         !ScimTenantContext.isSet()
-    }
-
-    void "legacy token sets no tenant context and never consults the resolver"() {
-        given:
-        scimEnabled(true, 'secret', true)
-        request.addHeader('Authorization', 'Bearer secret')
-
-        when:
-        boolean allowed = interceptor.before()
-
-        then:
-        allowed
-        !ScimTenantContext.isSet()
-        0 * resolver.resolveSecretHash(_)
-    }
-
-    void "legacy token is rejected when legacy flag is disabled"() {
-        given:
-        scimEnabled(true, 'secret', false)
-        request.addHeader('Authorization', 'Bearer secret')
-
-        when:
-        boolean allowed = interceptor.before()
-
-        then:
-        !allowed
-        response.status == 401
-        !ScimTenantContext.isSet()
-    }
-
-    // ------------------------
-    // TENANT TOKEN
-    // ------------------------
-    void "valid tenant token sets tenant context"() {
-        given:
-        scimEnabled(true, 'secret')
-        tenantConfigured()
-        request.addHeader('Authorization', "Bearer ${TENANT_TOKEN}")
-
-        when:
-        boolean allowed = interceptor.before()
-
-        then:
-        allowed
-        ScimTenantContext.currentTenantId() == 'tenant-001'
-    }
-
-    void "valid tenant token works when legacy flag is disabled"() {
-        given:
-        scimEnabled(true, 'secret', false)
-        tenantConfigured()
-        request.addHeader('Authorization', "Bearer ${TENANT_TOKEN}")
-
-        expect:
-        interceptor.before()
-        ScimTenantContext.currentTenantId() == 'tenant-001'
-    }
-
-    void "tenant token with wrong secret is rejected with 401"() {
-        given:
-        scimEnabled(true, 'secret')
-        tenantConfigured('tenant-001', 'some-other-secret'.bytes)
-        request.addHeader('Authorization', "Bearer ${TENANT_TOKEN}")
-
-        when:
-        boolean allowed = interceptor.before()
-
-        then:
-        !allowed
-        response.status == 401
-        !ScimTenantContext.isSet()
-    }
-
-    void "tenant token for unknown tenant is rejected with same 401 body"() {
-        given:
-        scimEnabled(true, 'secret')
-        resolver.resolveSecretHash(_) >> null
-        request.addHeader('Authorization', "Bearer ${TENANT_TOKEN}")
-
-        when:
-        boolean allowed = interceptor.before()
-
-        then:
-        !allowed
-        response.status == 401
-        def body = new JsonSlurper().parseText(response.contentAsString)
-        body.detail == 'UNAUTHORIZED access on scim endpoint'
-        !ScimTenantContext.isSet()
-    }
-
-    void "malformed tenant token is rejected without consulting the resolver"() {
-        given:
-        scimEnabled(true, 'secret')
-        request.addHeader('Authorization', 'Bearer not.a.valid.token')
-
-        when:
-        boolean allowed = interceptor.before()
-
-        then:
-        !allowed
-        response.status == 401
-        0 * resolver.resolveSecretHash(_)
-    }
-
-    void "tenant token is rejected when no resolver bean is present"() {
-        given:
-        scimEnabled(true, 'secret')
-        interceptor.scimTenantKeyResolver = null
-        request.addHeader('Authorization', "Bearer ${TENANT_TOKEN}")
-
-        expect:
-        !interceptor.before()
-        response.status == 401
     }
 
     // ------------------------
@@ -207,7 +105,7 @@ class ScimControllerInterceptorSpec extends Specification implements Interceptor
     // ------------------------
     void "valid tenant JWT sets tenant context"() {
         given:
-        scimEnabled(true, 'secret')
+        scimConfigured()
         jwtConfigured()
         request.addHeader('Authorization', "Bearer ${jwt()}")
 
@@ -217,12 +115,11 @@ class ScimControllerInterceptorSpec extends Specification implements Interceptor
         then:
         allowed
         ScimTenantContext.currentTenantId() == 'tenant-001'
-        0 * resolver.resolveSecretHash(_)
     }
 
-    void "valid tenant JWT works when legacy flag is disabled and issuer is enforced"() {
+    void "valid tenant JWT works when issuer is enforced"() {
         given:
-        scimEnabled(true, 'secret', false)
+        scimConfigured()
         jwtConfigured('tenant-001', 'kid-1', JWT_SECRET, 'https://idp.example')
         request.addHeader('Authorization', "Bearer ${jwt()}")
 
@@ -231,9 +128,28 @@ class ScimControllerInterceptorSpec extends Specification implements Interceptor
         ScimTenantContext.currentTenantId() == 'tenant-001'
     }
 
+    void "valid tenant JWT but SCIM disabled for the tenant is rejected with 403"() {
+        given:
+        scimConfigured()
+        jwtConfigured('tenant-001', 'kid-1', JWT_SECRET, null, false)
+        request.addHeader('Authorization', "Bearer ${jwt()}")
+
+        when:
+        boolean allowed = interceptor.before()
+
+        then:
+        !allowed
+        response.status == 403
+        def body = new JsonSlurper().parseText(response.contentAsString)
+        body.schemas == ['urn:ietf:params:scim:api:messages:2.0:Error']
+        body.status == '403'
+        body.detail == 'SCIM is not enabled'
+        !ScimTenantContext.isSet()
+    }
+
     void "tenant JWT signed with wrong secret is rejected with 401"() {
         given:
-        scimEnabled(true, 'secret')
+        scimConfigured()
         jwtConfigured()
         request.addHeader('Authorization', "Bearer ${jwt([:], [:], 'wrong-secret-wrong-secret-wrong-secret'.bytes)}")
 
@@ -245,7 +161,7 @@ class ScimControllerInterceptorSpec extends Specification implements Interceptor
 
     void "tenant JWT with unknown kid is rejected with same 401 body"() {
         given:
-        scimEnabled(true, 'secret')
+        scimConfigured()
         jwtResolver.resolveSecret(_, _) >> null
         request.addHeader('Authorization', "Bearer ${jwt(kid: 'kid-unknown')}")
 
@@ -260,7 +176,7 @@ class ScimControllerInterceptorSpec extends Specification implements Interceptor
 
     void "expired tenant JWT is rejected"() {
         given:
-        scimEnabled(true, 'secret')
+        scimConfigured()
         jwtConfigured()
         long past = System.currentTimeMillis().intdiv(1000) - 3600
         request.addHeader('Authorization', "Bearer ${jwt([:], [exp: past])}")
@@ -272,7 +188,7 @@ class ScimControllerInterceptorSpec extends Specification implements Interceptor
 
     void "tenant JWT with issuer mismatch is rejected"() {
         given:
-        scimEnabled(true, 'secret')
+        scimConfigured()
         jwtConfigured('tenant-001', 'kid-1', JWT_SECRET, 'https://expected')
         request.addHeader('Authorization', "Bearer ${jwt()}")
 
@@ -283,7 +199,7 @@ class ScimControllerInterceptorSpec extends Specification implements Interceptor
 
     void "tenant JWT with alg none never reaches the resolver"() {
         given:
-        scimEnabled(true, 'secret')
+        scimConfigured()
         request.addHeader('Authorization', "Bearer ${jwt(alg: 'none')}")
 
         when:
@@ -296,7 +212,7 @@ class ScimControllerInterceptorSpec extends Specification implements Interceptor
 
     void "tenant JWT is rejected when no jwt resolver bean is present"() {
         given:
-        scimEnabled(true, 'secret')
+        scimConfigured()
         interceptor.scimTenantJwtSecretResolver = null
         request.addHeader('Authorization', "Bearer ${jwt()}")
 
@@ -305,22 +221,9 @@ class ScimControllerInterceptorSpec extends Specification implements Interceptor
         response.status == 401
     }
 
-    void "three-part bearer is routed to JWT flow and never to tenant token flow"() {
-        given:
-        scimEnabled(true, 'secret')
-        jwtResolver.resolveSecret(_, _) >> null
-        request.addHeader('Authorization', "Bearer ${jwt()}")
-
-        when:
-        interceptor.before()
-
-        then:
-        0 * resolver.resolveSecretHash(_)
-    }
-
     void "configured clock skew is honoured"() {
         given:
-        scimEnabled(true, 'secret')
+        scimConfigured()
         mockConfig.getProperty(ScimControllerInterceptor.JWT_CLOCK_SKEW_KEY, _) >> 600L
         jwtConfigured()
         long slightlyPast = System.currentTimeMillis().intdiv(1000) - 300
@@ -355,7 +258,7 @@ class ScimControllerInterceptorSpec extends Specification implements Interceptor
     // ------------------------
     void "before returns false and 401 when authorization header is missing"() {
         given:
-        scimEnabled(true, 'secret')
+        scimConfigured()
 
         when:
         boolean allowed = interceptor.before()
@@ -371,7 +274,7 @@ class ScimControllerInterceptorSpec extends Specification implements Interceptor
 
     void "before returns false and 401 when bearer token does not match"() {
         given:
-        scimEnabled(true, 'secret')
+        scimConfigured()
         request.addHeader('Authorization', 'Bearer wrong-token')
 
         when:
@@ -384,7 +287,7 @@ class ScimControllerInterceptorSpec extends Specification implements Interceptor
 
     void "before returns false and 401 when authorization header has no scheme"() {
         given:
-        scimEnabled(true, 'secret')
+        scimConfigured()
         // No scheme -> not a Bearer header
         request.addHeader('Authorization', 'secret')
 
@@ -398,7 +301,7 @@ class ScimControllerInterceptorSpec extends Specification implements Interceptor
 
     void "before returns false and 401 when scheme is not Bearer"() {
         given:
-        scimEnabled(true, 'secret')
+        scimConfigured()
         request.addHeader('Authorization', 'Basic secret')
 
         expect:

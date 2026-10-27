@@ -1,6 +1,7 @@
 package grails.plugins.scim
 
 import grails.converters.JSON
+import grails.core.GrailsApplication
 import grails.plugins.scim.exceptions.InvalidRequestDataException
 import grails.plugins.scim.exceptions.ResourceConflictException
 import grails.plugins.scim.exceptions.ResourceNotFoundException
@@ -17,6 +18,7 @@ import org.springframework.http.HttpStatus
 class ScimGroupController {
 
     def scimGroupService
+    GrailsApplication grailsApplication
 
     def index(String filter, Integer count, Integer startIndex, String excludedAttributes, String attributes) {
         log.trace("Group search via SCIM for filter: ${filter}, ${excludedAttributes}")
@@ -140,17 +142,14 @@ class ScimGroupController {
         ScimGroup group = new ScimGroup()
         bindData(group, json)
         String contextTenant = ScimTenantContext.currentTenantId()
-        if (contextTenant) {
-            // Tenant-token flow: the authenticated tenant is authoritative; payload tenant is ignored.
-            group.customExtension = new CustomGroupExtension(tenant: contextTenant)
-            return group
-        }
+        // Tenant-token flow: the authenticated tenant is authoritative; payload tenant is ignored.
+        group.customExtension = new CustomGroupExtension(ownerTenant: contextTenant)
         // Legacy flow: honour whatever the payload carries, nothing is injected.
-        def ext = json[ScimGroup.EXT_URN]
-        if (ext instanceof Map) {
-            group.customExtension = new CustomGroupExtension(
-                    tenant: ext.tenant as String
-            )
+        if(grailsApplication.config.getProperty("DEFAULT_TENANT_ID", Long.class).toString().equals(contextTenant)){
+            def ext = json[ScimGroup.EXT_URN]
+            if (ext instanceof Map) {
+                group.customExtension.tenant = ext.tenant as String
+            }
         }
         return group
     }

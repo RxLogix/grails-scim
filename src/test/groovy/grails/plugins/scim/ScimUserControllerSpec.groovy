@@ -15,6 +15,7 @@ class ScimUserControllerSpec extends Specification implements ControllerUnitTest
 
     void setup() {
         controller.scimUserService = scimUserService
+        config.DEFAULT_TENANT_ID = 1L
         ScimTenantContext.clear()
     }
 
@@ -25,7 +26,7 @@ class ScimUserControllerSpec extends Specification implements ControllerUnitTest
     // ------------------------
     // TENANT TOKEN FLOW
     // ------------------------
-    void "save ignores payload tenants and uses context tenant when tenant context is set"() {
+    void "save sets ownerTenant from context and ignores payload tenants for a non-default tenant"() {
         given:
         ScimTenantContext.set('tenant-ctx')
         request.contentType = 'application/json'
@@ -41,10 +42,11 @@ class ScimUserControllerSpec extends Specification implements ControllerUnitTest
 
         then:
         response.status == 201
-        captured.customExtension.tenants == ['tenant-ctx'] as Set
+        captured.customExtension.ownerTenant == 'tenant-ctx'
+        captured.customExtension.tenants == [] as Set
     }
 
-    void "save populates tenant from context when extension block is absent"() {
+    void "save sets ownerTenant from context when extension block is absent"() {
         given:
         ScimTenantContext.set('tenant-ctx')
         request.contentType = 'application/json'
@@ -56,7 +58,8 @@ class ScimUserControllerSpec extends Specification implements ControllerUnitTest
         controller.save()
 
         then:
-        captured.customExtension.tenants == ['tenant-ctx'] as Set
+        captured.customExtension.ownerTenant == 'tenant-ctx'
+        captured.customExtension.tenants == [] as Set
     }
 
     void "patch drops operations targeting the tenant extension when tenant context is set"() {
@@ -116,8 +119,9 @@ class ScimUserControllerSpec extends Specification implements ControllerUnitTest
     // ------------------------
     // CUSTOM EXTENSION (fromJson)
     // ------------------------
-    void "save should parse comma-separated tenants from custom extension"() {
+    void "save parses comma-separated tenants from the payload in the default-tenant flow"() {
         given:
+        ScimTenantContext.set('1')
         def payload = """{
             "userName": "john",
             "urn:ietf:params:scim:schemas:extension:custom:2.0:User": {
@@ -135,10 +139,11 @@ class ScimUserControllerSpec extends Specification implements ControllerUnitTest
         then:
         response.status == 201
         captured.customExtension != null
+        captured.customExtension.ownerTenant == '1'
         captured.customExtension.tenants == ["tenant-001", "tenant-002", "DEFAULT"] as Set
     }
 
-    void "save should not set customExtension when extension block is absent"() {
+    void "save sets an empty customExtension when there is no context and no extension block"() {
         given:
         request.contentType = 'application/json'
         request.json = new JsonSlurper().parseText('{"userName": "john"}')
@@ -150,7 +155,9 @@ class ScimUserControllerSpec extends Specification implements ControllerUnitTest
 
         then:
         response.status == 201
-        captured.customExtension == null
+        captured.customExtension != null
+        captured.customExtension.ownerTenant == null
+        captured.customExtension.tenants == [] as Set
     }
 
     // ------------------------

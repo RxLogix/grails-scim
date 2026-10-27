@@ -3,9 +3,8 @@ package grails.plugins.scim.security
 import groovy.transform.CompileStatic
 
 /**
- * Resolves the raw HMAC secret used to verify a tenant's signed JWT.
- * Unlike {@link ScimTenantKeyResolver}, the secret must be returned in full because
- * HMAC verification needs the key bytes; hosts must therefore source it from a vault
+ * Resolves the raw HMAC secret used to verify a tenant's signed JWT. The secret must be returned in
+ * full because HMAC verification needs the key bytes; hosts must therefore source it from a vault
  * or environment, never from committed config.
  */
 @CompileStatic

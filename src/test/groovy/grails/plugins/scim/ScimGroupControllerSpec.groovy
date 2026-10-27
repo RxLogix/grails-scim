@@ -17,6 +17,7 @@ class ScimGroupControllerSpec extends Specification implements ControllerUnitTes
 
     void setup() {
         controller.scimGroupService = scimGroupService
+        config.DEFAULT_TENANT_ID = 1L
         ScimTenantContext.clear()
     }
 
@@ -27,7 +28,7 @@ class ScimGroupControllerSpec extends Specification implements ControllerUnitTes
     // ------------------------
     // TENANT TOKEN FLOW
     // ------------------------
-    void "save ignores payload tenant and uses context tenant when tenant context is set"() {
+    void "save sets ownerTenant from context and ignores payload tenant for a non-default tenant"() {
         given:
         ScimTenantContext.set('tenant-ctx')
         request.contentType = 'application/json'
@@ -43,10 +44,11 @@ class ScimGroupControllerSpec extends Specification implements ControllerUnitTes
 
         then:
         response.status == 201
-        captured.customExtension.tenant == 'tenant-ctx'
+        captured.customExtension.ownerTenant == 'tenant-ctx'
+        captured.customExtension.tenant == null
     }
 
-    void "save populates tenant from context when extension block is absent"() {
+    void "save sets ownerTenant from context when extension block is absent"() {
         given:
         ScimTenantContext.set('tenant-ctx')
         request.contentType = 'application/json'
@@ -58,7 +60,8 @@ class ScimGroupControllerSpec extends Specification implements ControllerUnitTes
         controller.save()
 
         then:
-        captured.customExtension.tenant == 'tenant-ctx'
+        captured.customExtension.ownerTenant == 'tenant-ctx'
+        captured.customExtension.tenant == null
     }
 
     void "patch drops operations targeting the tenant extension when tenant context is set"() {
@@ -100,8 +103,9 @@ class ScimGroupControllerSpec extends Specification implements ControllerUnitTes
     // ------------------------
     // CUSTOM EXTENSION (fromJson)
     // ------------------------
-    void "save should parse tenant string from custom extension"() {
+    void "save parses the tenant string from the payload in the default-tenant flow"() {
         given:
+        ScimTenantContext.set('1')
         def payload = """{
             "displayName": "Finance Team",
             "urn:ietf:params:scim:schemas:extension:custom:2.0:Group": {
@@ -119,10 +123,11 @@ class ScimGroupControllerSpec extends Specification implements ControllerUnitTes
         then:
         response.status == 201
         captured.customExtension != null
+        captured.customExtension.ownerTenant == '1'
         captured.customExtension.tenant == "tenant-001"
     }
 
-    void "save should not set customExtension when extension block is absent"() {
+    void "save sets an empty customExtension when there is no context and no extension block"() {
         given:
         request.contentType = 'application/json'
         request.json = new JsonSlurper().parseText('{"displayName": "Finance Team"}')
@@ -134,7 +139,9 @@ class ScimGroupControllerSpec extends Specification implements ControllerUnitTes
 
         then:
         response.status == 201
-        captured.customExtension == null
+        captured.customExtension != null
+        captured.customExtension.ownerTenant == null
+        captured.customExtension.tenant == null
     }
 
     // ------------------------

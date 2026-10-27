@@ -1,6 +1,7 @@
 package grails.plugins.scim
 
 import grails.converters.JSON
+import grails.core.GrailsApplication
 import grails.plugins.scim.exceptions.InvalidRequestDataException
 import grails.plugins.scim.exceptions.ResourceConflictException
 import grails.plugins.scim.exceptions.ResourceNotFoundException
@@ -18,6 +19,7 @@ import org.springframework.http.HttpStatus
 class ScimUserController {
 
     def scimUserService
+    GrailsApplication grailsApplication
 
     def index(String filter, Integer count, Integer startIndex, String excludedAttributes, String attributes) {
         log.trace("User search via SCIM for filter: ${filter}, ${excludedAttributes}")
@@ -145,17 +147,14 @@ class ScimUserController {
         ScimUser user = new ScimUser()
         bindData(user, json)
         String contextTenant = ScimTenantContext.currentTenantId()
-        if (contextTenant) {
-            // Tenant-token flow: the authenticated tenant is authoritative; payload tenants are ignored.
-            user.customExtension = new CustomUserExtension(tenants: [contextTenant] as Set)
-            return user
-        }
+        // Tenant-token flow: the authenticated tenant is authoritative; payload tenants are ignored.
+        user.customExtension = new CustomUserExtension(ownerTenant: contextTenant)
         // Legacy flow: honour whatever the payload carries, nothing is injected.
-        def ext = json[ScimUser.EXT_URN]
-        if (ext instanceof Map && ext.tenants != null) {
-            user.customExtension = new CustomUserExtension(
-                    tenants: ext.tenants.toString().split(grailsApplication.config.getProperty('grails.scim.separator', ",").toString())
-            )
+        if(grailsApplication.config.getProperty("DEFAULT_TENANT_ID", Long.class).toString().equals(contextTenant)){
+            def ext = json[ScimUser.EXT_URN]
+            if (ext instanceof Map && ext.tenants != null) {
+                user.customExtension.tenants = ext.tenants.toString().split(grailsApplication.config.getProperty('grails.scim.separator', ",").toString()) as Set
+            }
         }
         return user
     }

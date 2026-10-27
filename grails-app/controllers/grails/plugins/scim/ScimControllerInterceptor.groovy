@@ -6,8 +6,6 @@ import grails.plugins.scim.security.InvalidScimTokenException
 import grails.plugins.scim.security.ScimJwtParser
 import grails.plugins.scim.security.ScimTenantContext
 import grails.plugins.scim.security.ScimTenantJwtSecretResolver
-import grails.plugins.scim.security.ScimTenantKeyResolver
-import grails.plugins.scim.security.ScimTenantTokenParser
 import groovy.util.logging.Slf4j
 import org.springframework.http.HttpStatus
 import jakarta.servlet.http.HttpServletRequest
@@ -18,30 +16,24 @@ import java.security.MessageDigest
 /**
  * Authenticates SCIM requests.
  *
- * Three mutually exclusive flows, tried in this order:
+ * Two mutually exclusive flows, tried in this order:
  * <ul>
- *   <li><b>Legacy static token</b> ({@code grails.scim.legacyStaticToken.enabled}, default true):
- *       the bearer value matches {@code grails.scim.api_token}. No tenant context is set and
- *       payload tenant fields are honoured as sent.</li>
+ *   <li><b>Legacy static token</b>: the bearer value matches {@code grails.scim.api_token}. No
+ *       tenant context is set and payload tenant fields are honoured as sent.</li>
  *   <li><b>Tenant JWT</b>: an HS256 JWS whose header carries {@code tid} and {@code kid}. The secret
  *       comes from {@link ScimTenantJwtSecretResolver}; signature, {@code exp}, {@code nbf} and optional
- *       issuer are validated by {@link ScimJwtParser}.</li>
- *   <li><b>Tenant token</b>: {@code base64url(tenantId).base64url(secret)}. The SHA-256 of the
- *       presented secret is compared with the hash supplied by {@link ScimTenantKeyResolver}.</li>
+ *       issuer are validated by {@link ScimJwtParser}. After the signature verifies, SCIM must be
+ *       enabled for that tenant ({@code <tenantId>.grails.scim.enabled}) or the request is 403.</li>
  * </ul>
- * For both tenant flows {@link ScimTenantContext} carries the tenant for the rest of the request.
+ * The JWT flow publishes the tenant via {@link ScimTenantContext} for the rest of the request.
  */
 @Slf4j
 class ScimControllerInterceptor {
 
-    static final String LEGACY_ENABLED_KEY = 'grails.scim.legacyStaticToken.enabled'
     static final String JWT_CLOCK_SKEW_KEY = 'grails.scim.jwt.clockSkewSeconds'
     static final long DEFAULT_JWT_CLOCK_SKEW = 60L
 
     GrailsApplication grailsApplication
-
-    /** Injected by bean name; hosts override by declaring their own {@code scimTenantKeyResolver} bean. */
-    ScimTenantKeyResolver scimTenantKeyResolver
 
     /** Injected by bean name; hosts override by declaring their own {@code scimTenantJwtSecretResolver} bean. */
     ScimTenantJwtSecretResolver scimTenantJwtSecretResolver
@@ -53,30 +45,44 @@ class ScimControllerInterceptor {
     boolean before() {
         ScimTenantContext.clear()
 
-        if (!grailsApplication.config.getProperty("grails.scim.enabled", Boolean.class)) {
-            log.debug('Scim is not enabled for this env.')
-            render text: 'SCIM is not enabled', status: HttpStatus.FORBIDDEN
-            return false
-        }
-
         String bearer = extractBearer(request.getHeader("Authorization"))
         if (!bearer) {
             return reject('missing bearer')
         }
 
-        if (legacyEnabled() && matchesLegacyToken(bearer)) {
+        String tenantId
+
+        if (matchesLegacyToken(bearer)) {
             log.trace("Valid scim legacy token by Ip Address: {}", getClientIP(request))
-            return true
+            if (!scimEnabled()) {
+                log.info("Scim is not enabled for default tenant by Ip Address: {}", getClientIP(request))
+                forbidden("SCIM is not enabled")
+                return false
+            }
+            tenantId = grailsApplication.config.getProperty('DEFAULT_TENANT_ID', Long.class).toString()
+        }
+        else if (ScimJwtParser.looksLikeJwt(bearer)) {
+            tenantId = authenticateJwt(bearer)
+            if (!tenantId) {
+                return reject('token mismatch')
+            }
+
+            // Valid per-tenant JWT: SCIM must be enabled for that tenant (checked after verification).
+            if (!scimEnabledForTenant(tenantId)) {
+                log.info("Scim is not enabled for tenant {} by Ip Address: {}", tenantId, getClientIP(request))
+                forbidden("SCIM is not enabled")
+                return false
+            }
+        }
+        else {
+            return reject('token mismatch')
         }
 
-        String tenantId = ScimJwtParser.looksLikeJwt(bearer) ? authenticateJwt(bearer) : authenticateTenantToken(bearer)
-        if (tenantId) {
-            ScimTenantContext.set(tenantId)
-            log.trace("Valid scim tenant token for tenant {} by Ip Address: {}", tenantId, getClientIP(request))
-            return true
-        }
 
-        return reject('token mismatch')
+
+        ScimTenantContext.set(tenantId)
+        log.trace("Valid scim token for tenant {} by Ip Address: {}", tenantId, getClientIP(request))
+        return true
     }
 
     boolean after() {
@@ -89,11 +95,6 @@ class ScimControllerInterceptor {
     }
 
     // ---- helpers ----
-
-    private boolean legacyEnabled() {
-        Boolean enabled = grailsApplication.config.getProperty(LEGACY_ENABLED_KEY, Boolean.class)
-        enabled == null ? true : enabled
-    }
 
     private static String extractBearer(String header) {
         if (!header) {
@@ -137,23 +138,15 @@ class ScimControllerInterceptor {
         configured == null || configured < 0 ? DEFAULT_JWT_CLOCK_SKEW : configured
     }
 
-    /** @return the tenant id when the bearer is a valid tenant token, otherwise null. */
-    private String authenticateTenantToken(String bearer) {
-        if (scimTenantKeyResolver == null) {
-            return null
-        }
-        ScimTenantTokenParser.ParsedToken parsed
-        try {
-            parsed = ScimTenantTokenParser.parse(bearer)
-        } catch (InvalidScimTokenException ignored) {
-            return null
-        }
-        byte[] expected = scimTenantKeyResolver.resolveSecretHash(parsed.tenantId)
-        byte[] presented = ScimTenantTokenParser.sha256(parsed.secret)
-        if (expected != null && MessageDigest.isEqual(presented, expected)) {
-            return parsed.tenantId
-        }
-        return null
+    /** Whether SCIM is enabled for the tenant: {@code <tenantId>.grails.scim.enabled} is true. */
+    private boolean scimEnabledForTenant(String tenantId) {
+        Boolean enabled = grailsApplication.config.getProperty(tenantId + '.grails.scim.enabled', Boolean.class)
+        enabled != null && enabled
+    }
+
+    private boolean scimEnabled() {
+        Boolean enabled = grailsApplication.config.getProperty('grails.scim.enabled', Boolean.class)
+        enabled != null && enabled
     }
 
     private boolean reject(String reason) {
@@ -175,6 +168,15 @@ class ScimControllerInterceptor {
         render([
                 schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
                 status : HttpStatus.UNAUTHORIZED.value().toString(),
+                detail : message
+        ] as JSON)
+    }
+
+    private void forbidden(String message) {
+        response.status = HttpStatus.FORBIDDEN.value()
+        render([
+                schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
+                status : HttpStatus.FORBIDDEN.value().toString(),
                 detail : message
         ] as JSON)
     }

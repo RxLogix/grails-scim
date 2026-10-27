@@ -5,4 +5,5 @@ import groovy.transform.CompileStatic
 @CompileStatic
 class CustomGroupExtension {
     String tenant
+    String ownerTenant
 }

@@ -4,7 +4,6 @@ import grails.plugins.*
 import grails.plugins.scim.binding.JsonScimApiDataBindingSourceCreator
 import grails.plugins.scim.binding.DataBindingSourceRegistryUpdater
 import grails.plugins.scim.security.ConfigScimTenantJwtSecretResolver
-import grails.plugins.scim.security.ConfigScimTenantKeyResolver
 import groovy.util.logging.Slf4j
 
 @Slf4j
@@ -29,19 +28,14 @@ class GrailsScimGrailsPlugin extends Plugin {
 
     Closure doWithSpring() {
         { ->
-            if (!grailsApplication.config.getProperty("grails.scim.enabled",Boolean.class)) {
-                return
-            }
+            // Per-tenant SSO: SCIM enablement is per-tenant, so the beans always register. The
+            // interceptor enforces enablement per request (<tenantId>.grails.scim.enabled for a JWT;
+            // the legacy static token simply matches grails.scim.api_token).
             log.info "Loading scim plugin...."
             jsonScimApiDataBindingSourceCreator(JsonScimApiDataBindingSourceCreator) {
                 grailsApplication = ref('grailsApplication')
             }
             dataBindingSourceRegistryUpdater(DataBindingSourceRegistryUpdater)
-            // Default tenant-token key resolver backed by <tenantId>.grails.scim.api_token.
-            // Host applications may override this bean (same name) with a DB/vault backed implementation.
-            scimTenantKeyResolver(ConfigScimTenantKeyResolver) {
-                grailsApplication = ref('grailsApplication')
-            }
             // Default JWT secret resolver backed by <tenantId>.grails.scim.jwt.<kid>.
             scimTenantJwtSecretResolver(ConfigScimTenantJwtSecretResolver) {
                 grailsApplication = ref('grailsApplication')
