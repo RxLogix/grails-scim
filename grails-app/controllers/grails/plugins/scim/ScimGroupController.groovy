@@ -9,6 +9,7 @@ import grails.plugins.scim.messages.ListResponse
 import grails.plugins.scim.resources.CustomGroupExtension
 import grails.plugins.scim.resources.operations.PatchRequest
 import grails.plugins.scim.resources.ScimGroup
+import grails.plugins.scim.security.ScimTenantContext
 import groovy.util.logging.Slf4j
 import org.springframework.http.HttpStatus
 
@@ -74,6 +75,7 @@ class ScimGroupController {
         PatchRequest patchRequest = new PatchRequest()
         patchRequest.id = id
         bindData(patchRequest, request.JSON as Map)
+        dropTenantOperations(patchRequest)
         log.trace("Patch request for Group : ${id} via SCIM: ${patchRequest?.properties}")
         def result = null
         HttpStatus status = HttpStatus.NO_CONTENT
@@ -137,13 +139,26 @@ class ScimGroupController {
     private ScimGroup fromJson(Map json) {
         ScimGroup group = new ScimGroup()
         bindData(group, json)
+        // Authoritative context (tenant token / JWT): payload tenant fields are ignored and the extension is left
+        // empty; repositories read the tenant from ScimTenantContext. Otherwise (legacy, with or without
+        // DEFAULT_TENANT_ID) the payload is honoured as sent and nothing is injected.
         def ext = json[ScimGroup.EXT_URN]
-        if (ext instanceof Map) {
+        if (!ScimTenantContext.isAuthoritative() && ext instanceof Map) {
             group.customExtension = new CustomGroupExtension(
                     tenant: ext.tenant as String
             )
         }
         return group
+    }
+
+    /** In the tenant-token flow PATCH operations may not alter the tenant extension. */
+    private static void dropTenantOperations(PatchRequest patchRequest) {
+        if (!ScimTenantContext.isAuthoritative() || !patchRequest.Operations) {
+            return
+        }
+        patchRequest.Operations = patchRequest.Operations.findAll { op ->
+            !(op.path?.toString()?.startsWith(ScimGroup.EXT_URN))
+        }
     }
 
 }

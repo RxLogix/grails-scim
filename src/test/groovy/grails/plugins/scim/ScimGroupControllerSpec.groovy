@@ -5,6 +5,8 @@ import grails.plugins.scim.exceptions.ResourceConflictException
 import grails.plugins.scim.exceptions.ResourceNotFoundException
 import grails.plugins.scim.messages.ListResponse
 import grails.plugins.scim.resources.ScimGroup
+import grails.plugins.scim.resources.operations.PatchRequest
+import grails.plugins.scim.security.ScimTenantContext
 import grails.testing.web.controllers.ControllerUnitTest
 import groovy.json.JsonSlurper
 import spock.lang.Specification
@@ -15,6 +17,106 @@ class ScimGroupControllerSpec extends Specification implements ControllerUnitTes
 
     void setup() {
         controller.scimGroupService = scimGroupService
+        ScimTenantContext.clear()
+    }
+
+    void cleanup() {
+        ScimTenantContext.clear()
+    }
+
+    // ------------------------
+    // TENANT TOKEN FLOW
+    // ------------------------
+    void "save ignores payload tenant and leaves extension empty when tenant context is authoritative"() {
+        given:
+        ScimTenantContext.set('tenant-ctx')
+        request.contentType = 'application/json'
+        request.json = new JsonSlurper().parseText('''{
+            "displayName": "Finance",
+            "urn:ietf:params:scim:schemas:extension:custom:2.0:Group": { "tenant": "tenant-001" }
+        }''')
+        ScimGroup captured
+        scimGroupService.save(_) >> { ScimGroup g -> captured = g; g }
+
+        when:
+        controller.save()
+
+        then:
+        response.status == 201
+        captured.customExtension == null
+        ScimTenantContext.currentTenantId() == 'tenant-ctx'
+    }
+
+    void "save honours payload tenant when context holds only a legacy default tenant"() {
+        given:
+        ScimTenantContext.set('tenant-default', false)
+        request.contentType = 'application/json'
+        request.json = new JsonSlurper().parseText('''{
+            "displayName": "Finance",
+            "urn:ietf:params:scim:schemas:extension:custom:2.0:Group": { "tenant": "tenant-001" }
+        }''')
+        ScimGroup captured
+        scimGroupService.save(_) >> { ScimGroup g -> captured = g; g }
+
+        when:
+        controller.save()
+
+        then:
+        captured.customExtension.tenant == 'tenant-001'
+    }
+
+    void "patch keeps tenant extension operations when context holds only a legacy default tenant"() {
+        given:
+        ScimTenantContext.set('tenant-default', false)
+        request.contentType = 'application/json'
+        request.json = new JsonSlurper().parseText('''{
+            "Operations": [
+                { "op": "replace", "path": "urn:ietf:params:scim:schemas:extension:custom:2.0:Group.tenant", "value": "tenant-003" }
+            ]
+        }''')
+        PatchRequest captured
+        scimGroupService.patch(_) >> { PatchRequest p -> captured = p; null }
+
+        when:
+        controller.patch('g1')
+
+        then:
+        captured.Operations.size() == 1
+    }
+
+    void "save leaves extension empty when tenant context is authoritative and extension block is absent"() {
+        given:
+        ScimTenantContext.set('tenant-ctx')
+        request.contentType = 'application/json'
+        request.json = new JsonSlurper().parseText('{"displayName": "Finance"}')
+        ScimGroup captured
+        scimGroupService.save(_) >> { ScimGroup g -> captured = g; g }
+
+        when:
+        controller.save()
+
+        then:
+        captured.customExtension == null
+    }
+
+    void "patch drops operations targeting the tenant extension when tenant context is set"() {
+        given:
+        ScimTenantContext.set('tenant-ctx')
+        request.contentType = 'application/json'
+        request.json = new JsonSlurper().parseText('''{
+            "Operations": [
+                { "op": "replace", "path": "displayName", "value": "Ops" },
+                { "op": "replace", "path": "urn:ietf:params:scim:schemas:extension:custom:2.0:Group.tenant", "value": "evil" }
+            ]
+        }''')
+        PatchRequest captured
+        scimGroupService.patch(_) >> { PatchRequest p -> captured = p; null }
+
+        when:
+        controller.patch('g1')
+
+        then:
+        captured.Operations*.path == ['displayName']
     }
 
     // ------------------------
