@@ -139,15 +139,11 @@ class ScimGroupController {
     private ScimGroup fromJson(Map json) {
         ScimGroup group = new ScimGroup()
         bindData(group, json)
-        String contextTenant = ScimTenantContext.currentTenantId()
-        if (contextTenant) {
-            // Tenant-token flow: the authenticated tenant is authoritative; payload tenant is ignored.
-            group.customExtension = new CustomGroupExtension(tenant: contextTenant)
-            return group
-        }
-        // Legacy flow: honour whatever the payload carries, nothing is injected.
+        // Authoritative context (tenant token / JWT): payload tenant fields are ignored and the extension is left
+        // empty; repositories read the tenant from ScimTenantContext. Otherwise (legacy, with or without
+        // DEFAULT_TENANT_ID) the payload is honoured as sent and nothing is injected.
         def ext = json[ScimGroup.EXT_URN]
-        if (ext instanceof Map) {
+        if (!ScimTenantContext.isAuthoritative() && ext instanceof Map) {
             group.customExtension = new CustomGroupExtension(
                     tenant: ext.tenant as String
             )
@@ -157,7 +153,7 @@ class ScimGroupController {
 
     /** In the tenant-token flow PATCH operations may not alter the tenant extension. */
     private static void dropTenantOperations(PatchRequest patchRequest) {
-        if (!ScimTenantContext.isSet() || !patchRequest.Operations) {
+        if (!ScimTenantContext.isAuthoritative() || !patchRequest.Operations) {
             return
         }
         patchRequest.Operations = patchRequest.Operations.findAll { op ->

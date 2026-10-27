@@ -49,6 +49,7 @@ application.groovy
 grails.scim.enabled = true                       // master switch; endpoints return 403 when false
 grails.scim.api_token = '<shared secret>'        // legacy static bearer token (single tenant)
 grails.scim.legacyStaticToken.enabled = true     // optional; set false to accept tenant tokens only
+DEFAULT_TENANT_ID = 'tenant-001' // optional; tenant placed in ScimTenantContext for legacy requests
 grails.scim.separator = ','                      // optional; delimiter for the tenants extension value (default ",")
 grails.scim.mime.types = ['application/scim+json', 'application/scim+json;charset=utf-8'] // optional override
 
@@ -68,7 +69,9 @@ Store secrets and hashes in environment variables or external config, never in s
 
 Every request must carry `Authorization: Bearer <token>`. Request bodies must use `Content-Type: application/scim+json`. Three token styles are accepted, tried in this order:
 
-**Legacy static token.** The bearer value equals `grails.scim.api_token`. No tenant is derived from the token; the `tenants` / `tenant` custom extension in the payload is passed to your repository exactly as sent. This is the default and matches earlier plugin versions. Disable it with `grails.scim.legacyStaticToken.enabled = false`.
+**Legacy static token.** The bearer value equals `grails.scim.api_token`. No tenant is derived from the token; the `tenants` / `tenant` custom extension in the payload is passed to your repository exactly as sent. This is the default and matches earlier plugin versions. Disable it with `grails.scim.legacyStaticToken.enabled = false`. If `DEFAULT_TENANT_ID` is set, that tenant is placed in `ScimTenantContext` as a *default* (`ScimTenantContext.isAuthoritative()` is false) so repositories always have a tenant context; the payload is still honoured as sent.
+
+In the two tenant-scoped flows below the tenant is taken from the credential only. Any `tenants` / `tenant` custom extension in the payload is ignored, the resource reaches your repository with `customExtension` null, and PATCH operations targeting the extension are dropped. Repositories must read the tenant from `ScimTenantContext.currentTenantId()`.
 
 **Tenant JWT.** The bearer value is a standard HS256 JWS whose header carries `tid` (tenant id) and `kid` (key id):
 
@@ -86,7 +89,7 @@ To onboard a tenant, generate a 32-byte random secret, store its SHA-256 under t
 
 To resolve hashes from a database or vault instead of config, declare your own bean named `scimTenantKeyResolver` implementing `grails.plugins.scim.security.ScimTenantKeyResolver`. Return `null` for unknown tenants rather than throwing.
 
-Repositories must scope every read and write to `ScimTenantContext.currentTenantId()` when it is non-null, and must throw `ResourceNotFoundException` for ids belonging to another tenant. When it is null the request came through the legacy flow and existing behaviour applies. See [docs/PLUGIN_DESIGN.md](docs/PLUGIN_DESIGN.md) for the plugin architecture with flow diagrams and [docs/MULTI_TENANT_TOKEN_DESIGN.md](docs/MULTI_TENANT_TOKEN_DESIGN.md) for the authentication design decisions.
+Repositories must scope every read and write to `ScimTenantContext.currentTenantId()` when it is non-null, and must throw `ResourceNotFoundException` for ids belonging to another tenant. When it is null the request came through the legacy flow without a configured default tenant and existing behaviour applies. `ScimTenantContext.isAuthoritative()` tells a repository whether the tenant came from the credential (tenant token or JWT) or from the legacy default. See [docs/PLUGIN_DESIGN.md](docs/PLUGIN_DESIGN.md) for the plugin architecture with flow diagrams and [docs/MULTI_TENANT_TOKEN_DESIGN.md](docs/MULTI_TENANT_TOKEN_DESIGN.md) for the authentication design decisions.
 
 ### URL mappings
 

@@ -25,7 +25,7 @@ class ScimUserControllerSpec extends Specification implements ControllerUnitTest
     // ------------------------
     // TENANT TOKEN FLOW
     // ------------------------
-    void "save ignores payload tenants and uses context tenant when tenant context is set"() {
+    void "save ignores payload tenants and leaves extension empty when tenant context is authoritative"() {
         given:
         ScimTenantContext.set('tenant-ctx')
         request.contentType = 'application/json'
@@ -41,10 +41,64 @@ class ScimUserControllerSpec extends Specification implements ControllerUnitTest
 
         then:
         response.status == 201
-        captured.customExtension.tenants == ['tenant-ctx'] as Set
+        captured.customExtension == null
+        ScimTenantContext.currentTenantId() == 'tenant-ctx'
     }
 
-    void "save populates tenant from context when extension block is absent"() {
+    void "save honours payload tenants and injects nothing when context holds only a legacy default tenant"() {
+        given:
+        ScimTenantContext.set('tenant-default', false)
+        request.contentType = 'application/json'
+        request.json = new JsonSlurper().parseText('''{
+            "userName": "john",
+            "urn:ietf:params:scim:schemas:extension:custom:2.0:User": { "tenants": "tenant-001,tenant-002" }
+        }''')
+        ScimUser captured
+        scimUserService.save(_) >> { ScimUser u -> captured = u; u }
+
+        when:
+        controller.save()
+
+        then:
+        response.status == 201
+        captured.customExtension.tenants == ['tenant-001', 'tenant-002'] as Set
+    }
+
+    void "save leaves extension empty when context holds only a legacy default tenant and payload has none"() {
+        given:
+        ScimTenantContext.set('tenant-default', false)
+        request.contentType = 'application/json'
+        request.json = new JsonSlurper().parseText('{"userName": "john"}')
+        ScimUser captured
+        scimUserService.save(_) >> { ScimUser u -> captured = u; u }
+
+        when:
+        controller.save()
+
+        then:
+        captured.customExtension == null
+    }
+
+    void "patch keeps tenant extension operations when context holds only a legacy default tenant"() {
+        given:
+        ScimTenantContext.set('tenant-default', false)
+        request.contentType = 'application/json'
+        request.json = new JsonSlurper().parseText('''{
+            "Operations": [
+                { "op": "add", "path": "urn:ietf:params:scim:schemas:extension:custom:2.0:User.tenants", "value": "tenant-003" }
+            ]
+        }''')
+        PatchRequest captured
+        scimUserService.patch(_) >> { PatchRequest p -> captured = p; new ScimUser(id: 'u1') }
+
+        when:
+        controller.patch('u1')
+
+        then:
+        captured.Operations.size() == 1
+    }
+
+    void "save leaves extension empty when tenant context is authoritative and extension block is absent"() {
         given:
         ScimTenantContext.set('tenant-ctx')
         request.contentType = 'application/json'
@@ -56,7 +110,7 @@ class ScimUserControllerSpec extends Specification implements ControllerUnitTest
         controller.save()
 
         then:
-        captured.customExtension.tenants == ['tenant-ctx'] as Set
+        captured.customExtension == null
     }
 
     void "patch drops operations targeting the tenant extension when tenant context is set"() {

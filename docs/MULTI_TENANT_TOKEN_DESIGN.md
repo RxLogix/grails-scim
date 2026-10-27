@@ -107,7 +107,7 @@ IdP ──Authorization: Bearer <b64(tenantId)>.<b64(secret)>──▶ ScimContr
                                                                │ 6. ScimTenantContext.set(tenantId)
                                                                ▼
                                                     ScimUserController / ScimGroupController
-                                                               │ if context set: payload tenant(s) ignored, overwritten from context
+                                                               │ if context authoritative: payload tenant(s) ignored, extension left null
                                                                ▼
                                                     ScimUserService / ScimGroupService
                                                                ▼
@@ -138,7 +138,7 @@ IdP ──Authorization: Bearer <b64(tenantId)>.<b64(secret)>──▶ ScimContr
 
 #### Legacy static-token flow in detail
 
-The legacy flow is payload-driven. It does not use `ScimTenantContext` at all.
+The legacy flow is payload-driven. By default it does not use `ScimTenantContext`; see the M4 note on `DEFAULT_TENANT_ID` below for the optional default context.
 
 1. If `legacyStaticToken.enabled` is true, compare the bearer value with `grails.scim.api_token` using `MessageDigest.isEqual`.
 2. On a match the request is authenticated. **No `ScimTenantContext` is set.** Host repositories behave exactly as they do today and read tenant information from the resource objects they receive.
@@ -146,6 +146,7 @@ The legacy flow is payload-driven. It does not use `ScimTenantContext` at all.
 4. The `tenants` (User) and `tenant` (Group) custom extension fields remain supported and remain the only tenant source for legacy requests.
 5. **No tenant validation and no injection.** The controller performs no tenant check on legacy requests. Whatever tenant information the payload carries is passed to the repository unchanged, and if the extension block is absent the resource simply has no tenant data. Nothing is defaulted in. This is exactly today's behaviour.
 6. Tenant interpretation for legacy requests therefore stays entirely with the host repository, as it does now.
+7. **Optional default context (M4).** When `DEFAULT_TENANT_ID` is configured, the interceptor sets `ScimTenantContext.set(defaultTenantId, false)` on a successful legacy match. The context is *non-authoritative*: `currentTenantId()` returns it so repositories always have a tenant to scope by, but `authoritativeTenantId()` returns null, so controllers keep rules 4 to 6 above and do not overwrite or inject payload tenants. Tenant-token and JWT flows always set an authoritative context; in those flows the payload extension is ignored and `customExtension` is left null, the repository reads the tenant from the context.
 
 The two flows are mutually exclusive per request and are summarised below.
 
@@ -154,13 +155,13 @@ The two flows are mutually exclusive per request and are summarised below.
 | Authentication | Constant-time match on `grails.scim.api_token` | Constant-time match of `sha256(secret)` against the tenant's stored hash |
 | `ScimTenantContext` | Not set | Set with `tenantId` |
 | Tenant source | Payload extension fields | Token |
-| Payload tenant fields | Honoured as sent | Ignored and overwritten with the context tenant |
+| Payload tenant fields | Honoured as sent | Ignored; extension left null, tenant read from context |
 | Repository behaviour | Unchanged from today | Scope all reads and writes to context tenant |
 
 ### 6.3 Controllers
 
 - In `fromJson` and in `patch`, after binding, branch on whether `ScimTenantContext` is set.
-  - **Context set (tenant-token flow)**: the tenant is taken from the context and is mandatory. Any `tenants` / `tenant` values in the payload are ignored, not rejected. The controller overwrites the custom extension so that `ScimUser.customExtension.tenants == [contextTenant]` and `ScimGroup.customExtension.tenant == contextTenant`. For PATCH, operations whose `path` targets the extension tenant attribute are dropped before the request reaches the repository. If the context is somehow absent on this path the interceptor has already rejected the request, so controllers never see a tenant-token request without a tenant.
+  - **Context set (tenant-token flow)**: the tenant is taken from the context and is mandatory. Any `tenants` / `tenant` values in the payload are ignored, not rejected. The controller discards the custom extension so that `customExtension` is null and the repository takes the tenant from `ScimTenantContext.currentTenantId()`. For PATCH, operations whose `path` targets the extension tenant attribute are dropped before the request reaches the repository. If the context is somehow absent on this path the interceptor has already rejected the request, so controllers never see a tenant-token request without a tenant.
   - **Context not set (legacy flow)**: the payload is accepted as-is with no tenant handling.
 - Ignoring rather than rejecting payload tenants keeps IdPs that send a static extension block working without configuration changes, while guaranteeing the repository only ever sees the authenticated tenant.
 - For `index` and `show`, the tenant filter is applied by the host repository via the context, so no controller change is required beyond the above.
@@ -177,6 +178,7 @@ A future major version can add a `tenantId` parameter to the interface explicitl
 |---|---|---|
 | `<tenantId>.grails.scim.api_token` | none | SHA-256 hash of that tenant's secret, one key per tenant. Used by the default resolver. |
 | `grails.scim.legacyStaticToken.enabled` | `true` | Allows `grails.scim.api_token` as a fallback. Set `false` to force tenant tokens only. |
+| `DEFAULT_TENANT_ID` | unset | Tenant id placed in `ScimTenantContext` as a non-authoritative default for legacy requests. Must match the tenant id pattern; invalid values are ignored with a warning. |
 
 Startup validation in `GrailsScimGrailsPlugin.doWithSpring()`: because tenant keys are prefixed by tenant id, the plugin cannot enumerate them cheaply at startup. Validation is therefore done lazily on first lookup per tenant: a configured value that is not a valid 32-byte digest after decoding is logged once as a configuration error and treated as absent. If `legacyStaticToken.enabled` is false and the host has not configured any tenant or custom resolver, every request is rejected with 401, which is the safe failure mode.
 
@@ -194,7 +196,7 @@ The plugin deliberately adds no HTTP endpoint for creating tokens or tenants. On
 - **Timing attacks**: both the legacy comparison and the hash comparison use `MessageDigest.isEqual`.
 - **Enumeration**: unknown tenant, wrong secret and malformed token all return the same 401 body and take the same code path, so tenant ids cannot be probed.
 - **Token in logs**: the existing interceptor logs the full `Authorization` header on failure. That line must change to log only the IP and reason code.
-- **Tenant isolation**: enforced in two places. The controller overwrites any payload tenant with the authenticated tenant, so payload tampering cannot move a resource to another tenant. The repository scopes reads and writes by the context, so ids cannot be probed across tenants. Both are needed.
+- **Tenant isolation**: enforced in two places. The controller discards any payload tenant in tenant flows, so payload tampering cannot move a resource to another tenant. The repository scopes reads and writes by the context, so ids cannot be probed across tenants. Both are needed.
 - **Replay and expiry**: tokens are long-lived bearer credentials by design, as SCIM IdPs require. There is no built-in expiry; rotation is an operational task via the resolver. Transport must be TLS only.
 - **Input validation**: the parser rejects tokens over 1 KB, with wrong part counts, invalid base64url, or tenant ids outside the allowed pattern, before any lookup.
 - **Blast radius**: a leaked token exposes one tenant. A leaked server-side hash exposes nothing directly. There is no master key whose loss would expose every tenant.
@@ -217,7 +219,7 @@ Unit specs under `src/test/groovy/grails/plugins/scim/security/`, following the 
 - `ScimTenantTokenParserSpec`: build and parse round trip; one part, three parts, empty parts, invalid base64url, oversized input and tenant ids outside the pattern each throw; `build` output is accepted by `parse`.
 - `ConfigScimTenantKeyResolverSpec`: returns the hash from `<tenantId>.grails.scim.api_token`, returns null for unknown tenants, treats a malformed hash as absent, never builds a key from an unvalidated tenant id.
 - `ScimControllerInterceptorSpec`: extend the existing spec with tenant-token success, wrong secret, unknown tenant, legacy fallback on and off, context populated and cleared for tenant tokens, context absent for legacy tokens, and 401 body shape unchanged across all failure cases.
-- `ScimUserControllerSpec` / `ScimGroupControllerSpec`: tenant-token flow, payload tenants are replaced by the context tenant, absent extension is populated from the context, and PATCH operations targeting the tenant attribute are dropped; legacy flow, payload tenants pass through untouched and a missing extension is accepted.
+- `ScimUserControllerSpec` / `ScimGroupControllerSpec`: tenant-token flow, payload tenants are ignored and the extension is left null, and PATCH operations targeting the tenant attribute are dropped; legacy flow, payload tenants pass through untouched and a missing extension is accepted.
 
 ## 12. Addendum (M4): per-tenant signed JWT
 

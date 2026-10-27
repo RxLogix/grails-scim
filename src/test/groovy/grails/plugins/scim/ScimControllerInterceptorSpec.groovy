@@ -47,10 +47,11 @@ class ScimControllerInterceptorSpec extends Specification implements Interceptor
         ScimTenantContext.clear()
     }
 
-    private void scimEnabled(boolean enabled, String token = 'secret', Boolean legacyEnabled = null) {
+    private void scimEnabled(boolean enabled, String token = 'secret', Boolean legacyEnabled = null, String defaultTenant = null) {
         mockConfig.getProperty('grails.scim.enabled', _) >> enabled
         mockConfig.getProperty('grails.scim.api_token', _) >> token
         mockConfig.getProperty(ScimControllerInterceptor.LEGACY_ENABLED_KEY, _) >> legacyEnabled
+        mockConfig.getProperty(ScimControllerInterceptor.LEGACY_DEFAULT_TENANT_KEY, _) >> defaultTenant
     }
 
     private void tenantConfigured(String tenantId = 'tenant-001', byte[] secret = TENANT_SECRET) {
@@ -101,6 +102,51 @@ class ScimControllerInterceptorSpec extends Specification implements Interceptor
         allowed
         !ScimTenantContext.isSet()
         0 * resolver.resolveSecretHash(_)
+    }
+
+    void "legacy token sets a non-authoritative default tenant context when configured"() {
+        given:
+        scimEnabled(true, 'secret', true, 'tenant-default')
+        request.addHeader('Authorization', 'Bearer secret')
+
+        when:
+        boolean allowed = interceptor.before()
+
+        then:
+        allowed
+        ScimTenantContext.isSet()
+        !ScimTenantContext.isAuthoritative()
+        ScimTenantContext.currentTenantId() == 'tenant-default'
+        ScimTenantContext.authoritativeTenantId() == null
+        0 * resolver.resolveSecretHash(_)
+    }
+
+    void "legacy default tenant is ignored when it is not a valid tenant id"() {
+        given:
+        scimEnabled(true, 'secret', true, 'bad tenant/id')
+        request.addHeader('Authorization', 'Bearer secret')
+
+        when:
+        boolean allowed = interceptor.before()
+
+        then:
+        allowed
+        !ScimTenantContext.isSet()
+    }
+
+    void "legacy default tenant does not apply to tenant token flow"() {
+        given:
+        scimEnabled(true, 'secret', true, 'tenant-default')
+        tenantConfigured()
+        request.addHeader('Authorization', "Bearer ${ScimTenantTokenParser.build('tenant-001', TENANT_SECRET)}")
+
+        when:
+        boolean allowed = interceptor.before()
+
+        then:
+        allowed
+        ScimTenantContext.isAuthoritative()
+        ScimTenantContext.currentTenantId() == 'tenant-001'
     }
 
     void "legacy token is rejected when legacy flag is disabled"() {

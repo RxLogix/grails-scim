@@ -21,8 +21,10 @@ import java.security.MessageDigest
  * Three mutually exclusive flows, tried in this order:
  * <ul>
  *   <li><b>Legacy static token</b> ({@code grails.scim.legacyStaticToken.enabled}, default true):
- *       the bearer value matches {@code grails.scim.api_token}. No tenant context is set and
- *       payload tenant fields are honoured as sent.</li>
+ *       the bearer value matches {@code grails.scim.api_token}. Payload tenant fields are honoured
+ *       as sent. If {@code DEFAULT_TENANT_ID} is configured it is placed
+ *       in {@link ScimTenantContext} as a non-authoritative default so repositories always see a tenant;
+ *       otherwise no context is set.</li>
  *   <li><b>Tenant JWT</b>: an HS256 JWS whose header carries {@code tid} and {@code kid}. The secret
  *       comes from {@link ScimTenantJwtSecretResolver}; signature, {@code exp}, {@code nbf} and optional
  *       issuer are validated by {@link ScimJwtParser}.</li>
@@ -35,6 +37,7 @@ import java.security.MessageDigest
 class ScimControllerInterceptor {
 
     static final String LEGACY_ENABLED_KEY = 'grails.scim.legacyStaticToken.enabled'
+    static final String LEGACY_DEFAULT_TENANT_KEY = 'DEFAULT_TENANT_ID'
     static final String JWT_CLOCK_SKEW_KEY = 'grails.scim.jwt.clockSkewSeconds'
     static final long DEFAULT_JWT_CLOCK_SKEW = 60L
 
@@ -65,13 +68,17 @@ class ScimControllerInterceptor {
         }
 
         if (legacyEnabled() && matchesLegacyToken(bearer)) {
-            log.trace("Valid scim legacy token by Ip Address: {}", getClientIP(request))
+            String defaultTenant = defaultTenant()
+            if (defaultTenant) {
+                ScimTenantContext.set(defaultTenant, false)
+            }
+            log.trace("Valid scim legacy token (default tenant {}) by Ip Address: {}", defaultTenant, getClientIP(request))
             return true
         }
 
         String tenantId = ScimJwtParser.looksLikeJwt(bearer) ? authenticateJwt(bearer) : authenticateTenantToken(bearer)
         if (tenantId) {
-            ScimTenantContext.set(tenantId)
+            ScimTenantContext.set(tenantId, defaultTenant() != tenantId)
             log.trace("Valid scim tenant token for tenant {} by Ip Address: {}", tenantId, getClientIP(request))
             return true
         }
@@ -93,6 +100,19 @@ class ScimControllerInterceptor {
     private boolean legacyEnabled() {
         Boolean enabled = grailsApplication.config.getProperty(LEGACY_ENABLED_KEY, Boolean.class)
         enabled == null ? true : enabled
+    }
+
+    /** @return the configured legacy default tenant, or null when unset or not a valid tenant id. */
+    private String defaultTenant() {
+        String configured = grailsApplication.config.getProperty(LEGACY_DEFAULT_TENANT_KEY, String.class)?.trim()
+        if (!configured) {
+            return null
+        }
+        if (!ScimTenantTokenParser.TENANT_ID_PATTERN.matcher(configured).matches()) {
+            log.warn("Ignoring {}: value is not a valid tenant id", LEGACY_DEFAULT_TENANT_KEY)
+            return null
+        }
+        configured
     }
 
     private static String extractBearer(String header) {

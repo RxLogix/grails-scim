@@ -157,11 +157,11 @@ flowchart TD
     B -- yes --> C{Authorization header<br/>'Bearer value'?}
     C -- missing / wrong scheme --> F401
     C -- yes --> D{legacyStaticToken.enabled<br/>AND constant-time match<br/>grails.scim.api_token?}
-    D -- yes --> L["Authenticated<br/>NO tenant context"]
+    D -- yes --> L["Authenticated<br/>context = DEFAULT_TENANT_ID<br/>(non-authoritative) if configured, else none"]
     D -- no --> E{Bearer has exactly<br/>3 dot-separated parts?}
     E -- yes --> J[Tenant JWT flow<br/>section 5.2]
     E -- no --> T[Tenant token flow<br/>section 5.1]
-    J -- ok --> CTX["Authenticated<br/>ScimTenantContext = tid"]
+    J -- ok --> CTX["Authenticated<br/>ScimTenantContext = tid (authoritative)"]
     T -- ok --> CTX
     J -- fail --> F401
     T -- fail --> F401
@@ -243,20 +243,20 @@ The header is covered by the signature, so `tid` and `kid` can be read before ve
 
 | | Legacy static token | Tenant token | Tenant JWT |
 |---|---|---|---|
-| `ScimTenantContext` | not set | `tenantId` | `tid` |
+| `ScimTenantContext` | `DEFAULT_TENANT_ID` if configured (non-authoritative), else not set | `tenantId` (authoritative) | `tid` (authoritative) |
 | Server-side secret | plaintext `grails.scim.api_token` | SHA-256 hash only | raw HMAC secret |
 | Expiry | none | none | `exp` mandatory |
 | Rotation | replace the value | replace the hash | add new `kid`, retire old |
-| Payload tenant fields | honoured as sent | ignored, replaced | ignored, replaced |
+| Payload tenant fields | honoured as sent | ignored, extension left null | ignored, extension left null |
 
 ## 6. Tenant handling in controllers
 
 ```mermaid
 flowchart TD
     A["Controller action<br/>(save / update / patch)"] --> B[bindData from request.JSON]
-    B --> C{ScimTenantContext.isSet?}
-    C -- "no (legacy)" --> D["Read tenants / tenant from<br/>custom extension if present<br/>nothing injected"]
-    C -- "yes (tenant flows)" --> E["Overwrite customExtension with<br/>context tenant only"]
+    B --> C{ScimTenantContext.authoritativeTenantId?}
+    C -- "null (legacy, with or without default tenant)" --> D["Read tenants / tenant from<br/>custom extension if present<br/>nothing injected"]
+    C -- "yes (tenant flows)" --> E["Ignore payload extension<br/>customExtension stays null<br/>tenant available via ScimTenantContext"]
     E --> F{PATCH?}
     F -- yes --> G["dropTenantOperations: remove ops whose<br/>path starts with the extension URN"]
     F -- no --> H
@@ -264,7 +264,9 @@ flowchart TD
     D --> H[Call service]
 ```
 
-The rule is deliberately "ignore and replace", not "reject". An IdP that sends a static extension block keeps working, and the repository can never receive a tenant other than the authenticated one.
+A legacy request with `DEFAULT_TENANT_ID` configured still takes the left branch: the context exists for repositories (`currentTenantId()`), but it is not authoritative, so payload tenants are neither replaced nor injected.
+
+The rule is deliberately "ignore", not "reject". An IdP that sends a static extension block keeps working, and the repository can never receive a tenant other than the authenticated one because the only tenant source in these flows is `ScimTenantContext.currentTenantId()`.
 
 ## 7. Data binding and serialisation
 
@@ -401,6 +403,7 @@ The plugin also exposes `ScimTenantTokenParser.build`, `ScimTenantTokenParser.sh
 | `grails.scim.enabled` | false | Master switch for beans and interceptor |
 | `grails.scim.api_token` | none | Legacy static bearer token |
 | `grails.scim.legacyStaticToken.enabled` | true | Set false to accept tenant credentials only |
+| `DEFAULT_TENANT_ID` | none | Tenant placed in `ScimTenantContext` as a non-authoritative default for legacy requests |
 | `<tenantId>.grails.scim.api_token` | none | SHA-256 (hex or base64) of the tenant token secret |
 | `<tenantId>.grails.scim.jwt.<kid>` | none | Base64 raw HMAC secret, at least 32 bytes; `issuer` is reserved |
 | `<tenantId>.grails.scim.jwt.issuer` | none | When set, the JWT `iss` claim must match |
@@ -418,7 +421,7 @@ Secrets and hashes belong in environment variables or a vault, never in committe
 - **Uniform failure.** Unknown tenant, unknown key, wrong secret, malformed token and expired token all produce the same 401 body and the same log shape, so nothing can be enumerated.
 - **No credential logging.** The Authorization header is never written to the log; failures log the client IP and a reason code only.
 - **Input bounds before work.** Length limits, part counts, base64 validity and id patterns are enforced before any lookup or cryptographic operation.
-- **Tenant isolation in two places.** Controllers overwrite payload tenants with the authenticated tenant; repositories scope by the context. Both are required.
+- **Tenant isolation in two places.** Controllers discard payload tenants in tenant flows so the resource carries none; repositories scope by the context. Both are required.
 - **No master key.** Each tenant has its own secret or hash. A leaked credential or a leaked server-side value affects one tenant only.
 - **Thread safety.** `ScimTenantContext` is a ThreadLocal cleared on entry and on both exit paths of the interceptor.
 
@@ -433,6 +436,6 @@ Specs live under `src/test/groovy/grails/plugins/scim/` with security classes un
 | Resolvers | `ConfigScimTenantKeyResolverSpec`, `ConfigScimTenantJwtSecretResolverSpec` | Config key shape, hash-only and length rules, no lookup for invalid ids |
 | Context | `ScimTenantContextSpec` | Set, clear, thread isolation |
 | Interceptor | `ScimControllerInterceptorSpec` | All three flows, flag on and off, every failure mode, context lifecycle |
-| Controllers | `ScimUserControllerSpec`, `ScimGroupControllerSpec` | Tenant overwrite, PATCH op dropping, legacy pass-through, status mapping |
+| Controllers | `ScimUserControllerSpec`, `ScimGroupControllerSpec` | Payload tenant ignored in tenant flows, PATCH op dropping, legacy and default-tenant pass-through, status mapping |
 | Serialisation | `ScimResponseMarshallerSpec` | Trait fields and statics excluded, extension emitted under its URN |
 | Discovery | `ScimHomeControllerSpec` | Schema, resource type, provider config and auth page rendering |

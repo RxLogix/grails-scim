@@ -144,15 +144,11 @@ class ScimUserController {
     private ScimUser fromJson(Map json) {
         ScimUser user = new ScimUser()
         bindData(user, json)
-        String contextTenant = ScimTenantContext.currentTenantId()
-        if (contextTenant) {
-            // Tenant-token flow: the authenticated tenant is authoritative; payload tenants are ignored.
-            user.customExtension = new CustomUserExtension(tenants: [contextTenant] as Set)
-            return user
-        }
-        // Legacy flow: honour whatever the payload carries, nothing is injected.
+        // Authoritative context (tenant token / JWT): payload tenant fields are ignored and the extension is left
+        // empty; repositories read the tenant from ScimTenantContext. Otherwise (legacy, with or without
+        // DEFAULT_TENANT_ID) the payload is honoured as sent and nothing is injected.
         def ext = json[ScimUser.EXT_URN]
-        if (ext instanceof Map && ext.tenants != null) {
+        if (!ScimTenantContext.isAuthoritative() && ext instanceof Map && ext.tenants != null) {
             user.customExtension = new CustomUserExtension(
                     tenants: ext.tenants.toString().split(grailsApplication.config.getProperty('grails.scim.separator', ",").toString())
             )
@@ -162,7 +158,7 @@ class ScimUserController {
 
     /** In the tenant-token flow PATCH operations may not alter the tenant extension. */
     private static void dropTenantOperations(PatchRequest patchRequest) {
-        if (!ScimTenantContext.isSet() || !patchRequest.Operations) {
+        if (!ScimTenantContext.isAuthoritative() || !patchRequest.Operations) {
             return
         }
         patchRequest.Operations = patchRequest.Operations.findAll { op ->

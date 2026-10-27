@@ -27,6 +27,26 @@ class ScimTenantContextSpec extends Specification {
         !ScimTenantContext.isSet()
     }
 
+    void "single-arg set is authoritative"() {
+        when:
+        ScimTenantContext.set('tenant-001')
+
+        then:
+        ScimTenantContext.isAuthoritative()
+        ScimTenantContext.authoritativeTenantId() == 'tenant-001'
+    }
+
+    void "default tenant is visible via currentTenantId but not authoritativeTenantId"() {
+        when:
+        ScimTenantContext.set('tenant-default', false)
+
+        then:
+        ScimTenantContext.isSet()
+        !ScimTenantContext.isAuthoritative()
+        ScimTenantContext.currentTenantId() == 'tenant-default'
+        ScimTenantContext.authoritativeTenantId() == null
+    }
+
     void "setting null or empty clears the context"() {
         given:
         ScimTenantContext.set('tenant-001')
